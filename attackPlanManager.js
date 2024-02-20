@@ -1,7 +1,7 @@
 /*
-* Script Name: Workbench Plan Importer
+* Script Name: Attack Plan Manager
 * Version: v1.0
-* Last Updated: 2024-02-19
+* Last Updated: 2024-02-20
 * Author: SaveBank
 * Author Contact: Discord: savebank
 * Contributor:  
@@ -24,9 +24,9 @@ var buttonIDs = [
 
 var scriptConfig = {
     scriptData: {
-        prefix: 'sbWPI',
-        name: 'Workbench Plan Importer',
-        version: 'v1.1',
+        prefix: 'sbAPM',
+        name: 'Attack Plan Manager',
+        version: 'v1.0',
         author: 'SaveBank',
         authorUrl: 'https://forum.tribalwars.net/index.php?members/savebank.131111/',
         helpLink: '',
@@ -35,13 +35,13 @@ var scriptConfig = {
         en_DK: {
             'Redirecting...': 'Redirecting...',
             Help: 'Help',
-            'Workbench Plan Importer': 'Workbench Plan Importer',
+            'Attack Plan Manager': 'Attack Plan Manager',
             'There was an error!': 'There was an error!',
         },
         de_DE: {
             'Redirecting...': 'Weiterleiten...',
             Help: 'Hilfe',
-            'Workbench Plan Importer': 'Workbench Plan Importer',
+            'Attack Plan Manager': 'Attack Plan Manager',
             'There was an error!': 'Es gab einen Fehler!',
         }
     }

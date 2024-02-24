@@ -77,19 +77,34 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             twSDK.redirectTo('overview_villages&combined');
             return;
         }
-        // const { tribes, players, villages } = await fetchWorldConfigData();
+        const { worldUnitInfo, worldConfig, tribes, players, villages } = await fetchWorldConfigData();
+        const villageMap = new Map();
+        villages.forEach(village => {
+            const key = village[0];
+            villageMap.set(key, village);
+        });
+        const playersMap = new Map();
+        players.forEach(player => {
+            const key = player[0];
+            playersMap.set(key, player);
+        });
+
         const endTime = performance.now();
         if (DEBUG) console.debug(`${scriptInfo}: Startup time: ${(endTime - startTime).toFixed(2)} milliseconds`);
-        if (DEBUG) console.debug(`${scriptInfo}: `, tribes);
-        if (DEBUG) console.debug(`${scriptInfo}: `, players);
-        if (DEBUG) console.debug(`${scriptInfo}: `, villages);
+        if (DEBUG) console.debug(`${scriptInfo} worldUnitInfo: `, worldUnitInfo);
+        if (DEBUG) console.debug(`${scriptInfo} worldConfig: `, worldConfig);
+        if (DEBUG) console.debug(`${scriptInfo} tribes: `, tribes);
+        if (DEBUG) console.debug(`${scriptInfo} players: `, players);
+        if (DEBUG) console.debug(`${scriptInfo} villages: `, villages);
+        if (DEBUG) console.debug(`${scriptInfo} villageMap: `, villageMap);
+        if (DEBUG) console.debug(`${scriptInfo} playersMap: `, playersMap);
         // Entry point
         (async function () {
             try {
                 const startTime = performance.now();
                 openDatabase();
                 renderUI();
-                // addEventHandlers();
+                addEventHandlers();
                 initializeInputFields();
                 const endTime = performance.now();
                 if (DEBUG) console.debug(`${scriptInfo}: Time to initialize: ${(endTime - startTime).toFixed(2)} milliseconds`);
@@ -107,7 +122,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 <div id="import" class="ra-mb10">
                     ${importContent}
                 </div>
-                <div id="results" class="ra-mb10">
+                <div id="plans" class="ra-mb10">
                 </div>
             `
             twSDK.renderBoxWidget(
@@ -119,15 +134,17 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
         }
 
-        $('#importPlan').click(function () {
-            var importContent = $('#importInput').val();
-            importPlan(importContent);
-        });
+        function addEventHandlers() {
+            $('#importPlan').click(function () {
+                var importContent = $('#importInput').val();
+                importPlan(importContent);
+            });
+        }
 
         function initializeInputFields() {
             getAllPlans().then(plans => {
                 if (plans.length > 0) {
-                    $('#results').html(generateTable(plans[0]));
+                    $('#plans').html(renderPlan(plans[0]));
                 } else {
                     console.log("No plans found");
                 }
@@ -231,40 +248,82 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         border-color: #92794e; 
                         box-shadow: 0 0 5px rgba(193, 162, 100, 0.7);
                     }
-
             `;
 
             return css;
         }
+        /*
+        * th1: origin village id
+        * th2: origin player 
+        * th3: target village id
+        * th4: target player
+        * th5: slowest unit
+        * th6: type
+        * th7: send time
+        * th8: arrival time
+        * th9: remaining time
+        * th10: send button
+        * th11: delete button
+        */
+        function renderPlan(plan) {
+            // Create a HTML string for the table headings.
+            tbodyContent = renderPlanRows(plan);
 
-        function generateTable(array) {
-            let table = '<table>';
+            let html = `
+        <table class="plan">
+            <thead>
+                <tr>
+                    <th>Origin Village ID</th>
+                    <th>Origin Player</th>
+                    <th>Target Village ID</th>
+                    <th>Target Player</th>
+                    <th>Slowest Unit</th>
+                    <th>Type</th>
+                    <th>Send Time</th>
+                    <th>Arrival Time</th>
+                    <th>Remaining Time</th>
+                    <th>Send Button</th>
+                    <th>Delete Button</th>
+                </tr>
+            </thead>
+            ${tbodyContent}
+        </table>
+    `;
 
-            // Generate table headings
-            table += '<thead><tr>';
-            for (let key in array[0]) {
-                table += '<th>' + key + '</th>';
+            return html;
+        }
+
+        function renderPlanRows(plan) {
+            let tbodyContent = '';
+            for (let i = 0; i < plan.length; i++) {
+                let row = plan[i];
+                let distance = getDistanceFromIDs(parseInt(row.originVillageId), parseInt(row.targetVillageId));
+                let unitSpeed = worldUnitInfo.config[row.slowestUnit].speed;
+                let sendTimestamp = parseInt(parseInt(row.arrivalTimestamp) - (twSDK.getTravelTimeInSecond(distance, unitSpeed) * 1000));
+                let remainingTime = parseInt(sendTimestamp - Date.now());
+                tbodyContent += `
+            <tr>
+                <td><a href="/game.php?village=${row.originVillageId}&screen=overview"><span class="quickedit-label">${villageMap.get(parseInt(row.originVillageId))[1]} (${villageMap.get(parseInt(row.originVillageId))[2]}|${villageMap.get(parseInt(row.originVillageId))[3]})</span></a></td>
+                <td><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.originVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.originVillageId))[4]))[1]}</span></td>
+                <td><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.targetVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.targetVillageId))[1]} (${villageMap.get(parseInt(row.targetVillageId))[2]}|${villageMap.get(parseInt(row.targetVillageId))[3]})</span></td>
+                <td><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></td></td>
+                <td>${row.slowestUnit}</td>
+                <td>${row.attackType}</td>
+                <td>${sendTimestamp}</td>
+                <td>${row.arrivalTimestamp}</td>
+                <td id="remainingTime${i}">${remainingTime}</td>
+                <td>Send</td>
+                <td>Delete</td>
+            </tr>
+        `;
             }
-            table += '</tr></thead>';
+            return tbodyContent;
+        }
 
-            // Generate table rows
-            table += '<tbody>';
-            for (let i = 0; i < array.length; i++) {
-                table += '<tr>';
-                for (let key in array[i]) {
-                    let value = array[i][key];
-                    if (typeof value === 'object' && value !== null) {
-                        value = JSON.stringify(value);
-                    }
-                    table += '<td>' + value + '</td>';
-                }
-                table += '</tr>';
-            }
-            table += '</tbody>';
-
-            table += '</table>';
-
-            return table;
+        function getDistanceFromIDs(originVillageId, targetVillageId) {
+            let originVillage = villageMap.get(originVillageId)[2] + "|" + villageMap.get(originVillageId)[3];
+            let targetVillage = villageMap.get(targetVillageId)[2] + "|" + villageMap.get(targetVillageId)[3];
+            return twSDK.calculateDistance(originVillage, targetVillage);
         }
 
 
@@ -273,8 +332,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 <fieldset>
                     <legend>${twSDK.tt('Import attack plan:')}</legend>
                     <textarea id="importInput" class="sb-input-textarea"></textarea>
-                    <button id="importPlan" class="btn">${twSDK.tt('Import')}</button>
+                    
                 </fieldset>
+                <div class="ra-mb10">
+                    <button id="importPlan" class="btn">${twSDK.tt('Import')}</button>
+                </div>
             `;
             return fieldset;
         }
@@ -286,14 +348,14 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             addPlan(plan);
 
             console.log(plan);
-            $('#results').html(generateTable(plan));
+            $('#plans').html(renderPlan(plan));
         }
 
         function convertWBPlanToArray(plan) {
             let planArray = plan.split("\n").filter(str => str.trim() !== "");
             let planObjects = [];
             /* 
-            * 0: start village id
+            * 0: origin village id
             * 1: target village id
             * 2: slowest unit
             * 3: arrival timestamp
@@ -312,11 +374,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 }, {});
 
                 let planObject = {
-                    startVillageId: planParts[0],
-                    targetVillageId: planParts[1],
+                    originVillageId: parseInt(planParts[0]),
+                    targetVillageId: parseInt(planParts[1]),
                     slowestUnit: planParts[2],
-                    arrivalTimestamp: planParts[3],
-                    attackType: planParts[4],
+                    arrivalTimestamp: parseInt(planParts[3]),
+                    attackType: parseInt(planParts[4]),
                     drawIn: planParts[5] === 'false',
                     sent: planParts[6] === 'false',
                     units: units
@@ -518,6 +580,21 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             openRequest.onerror = function (event) {
                 console.log("Error opening database", event);
             };
+        }
+        async function fetchWorldConfigData() {
+            try {
+                const villages = await twSDK.worldDataAPI('village');
+                const players = await twSDK.worldDataAPI('player');
+                const tribes = await twSDK.worldDataAPI('ally');
+                const worldUnitInfo = await twSDK.getWorldUnitInfo();
+                const worldConfig = await twSDK.getWorldConfig();
+                return { worldUnitInfo, worldConfig, tribes, players, villages };
+            } catch (error) {
+                UI.ErrorMessage(
+                    twSDK.tt('There was an error while fetching the data!')
+                );
+                console.error(`${scriptInfo} Error:`, error);
+            }
         }
     }
 );

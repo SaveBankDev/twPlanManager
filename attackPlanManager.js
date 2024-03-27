@@ -248,6 +248,10 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         border-color: #92794e; 
                         box-shadow: 0 0 5px rgba(193, 162, 100, 0.7);
                     }
+
+                    .buttonClicked {
+                        background-color: grey;
+                    }
             `;
 
             return css;
@@ -270,7 +274,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             tbodyContent = renderPlanRows(plan);
 
             let html = `
-        <table class="plan">
+        <table class="sbPlan">
             <thead>
                 <tr>
                     <th>Origin Village ID</th>
@@ -298,9 +302,14 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             for (let i = 0; i < plan.length; i++) {
                 let row = plan[i];
                 let distance = getDistanceFromIDs(parseInt(row.originVillageId), parseInt(row.targetVillageId));
-                let unitSpeed = worldUnitInfo.config[row.slowestUnit].speed;
+                let unitSpeed = parseInt(worldUnitInfo.config[row.slowestUnit].speed);
                 let sendTimestamp = parseInt(parseInt(row.arrivalTimestamp) - (twSDK.getTravelTimeInSecond(distance, unitSpeed) * 1000));
-                let remainingTime = parseInt(sendTimestamp - Date.now());
+                let remainingTimestamp = parseInt(sendTimestamp - Date.now());
+                let remainingTime = convertTimestampToDateString(remainingTimestamp);
+                let sendButton = createSendButton();
+                let deleteButton = createDeleteButton();
+                let sendTime = convertTimestampToDateString(sendTimestamp);
+                let arrivalTime = convertTimestampToDateString(parseInt(row.arrivalTimestamp));
                 tbodyContent += `
             <tr>
                 <td><a href="/game.php?village=${row.originVillageId}&screen=overview"><span class="quickedit-label">${villageMap.get(parseInt(row.originVillageId))[1]} (${villageMap.get(parseInt(row.originVillageId))[2]}|${villageMap.get(parseInt(row.originVillageId))[3]})</span></a></td>
@@ -309,15 +318,52 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 <td><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></td></td>
                 <td>${row.slowestUnit}</td>
                 <td>${row.attackType}</td>
-                <td>${sendTimestamp}</td>
-                <td>${row.arrivalTimestamp}</td>
-                <td id="remainingTime${i}">${remainingTime}</td>
-                <td>Send</td>
-                <td>Delete</td>
+                <td>${sendTime}</td>
+                <td>${arrivalTime}</td>
+                <td id="remainingTimestamp${i}">${remainingTime}</td>
+                <td>${sendButton}</td>
+                <td>${deleteButton}</td>
             </tr>
         `;
             }
             return tbodyContent;
+        }
+
+        // TODO slowest unit to img
+
+        // TODO attack type to img
+
+        // TODO timestamp to date
+        function convertTimestampToDateString(timestamp) {
+            let date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+
+        // TODO remaining time to date with updates (we have ids for each row)
+
+
+        // TODO send button to send the attack
+        function createSendButton() {
+            let button = document.createElement("button");
+            button.innerHTML = "Send";
+
+            button.onclick = function () {
+                // send attack
+                button.classList.add("buttonClicked");
+            }
+            return button;
+        }
+        // TODO delete button to delete the attack
+        function createDeleteButton() {
+            let button = document.createElement("button");
+            button.innerHTML = "Delete";
+            button.onclick = function () {
+                // delete attack
+                let row = button.parentNode.parentNode;
+                row.parentNode.removeChild(row);
+            }
+            
+            return button;
         }
 
         function getDistanceFromIDs(originVillageId, targetVillageId) {

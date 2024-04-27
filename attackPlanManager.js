@@ -125,6 +125,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             twSDK.redirectTo('overview_villages&combined');
             return;
         }
+
         const { worldUnitInfo, worldConfig, tribes, players, villages } = await fetchWorldConfigData();
         const villageMap = new Map();
         villages.forEach(village => {
@@ -136,8 +137,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             const key = player[0];
             playersMap.set(key, player);
         });
-
+        const unitObject = await fetchTroopsForAllVillages();
         const endTime = performance.now();
+        if (DEBUG) console.debug(`${scriptInfo}: Units: `, unitObject);
         if (DEBUG) console.debug(`${scriptInfo}: Startup time: ${(endTime - startTime).toFixed(2)} milliseconds`);
         if (DEBUG) console.debug(`${scriptInfo} worldUnitInfo: `, worldUnitInfo);
         if (DEBUG) console.debug(`${scriptInfo} worldConfig: `, worldConfig);
@@ -365,10 +367,26 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let planId = localStorageSettings.planSelector;
                 let lastDashIndex = planId.lastIndexOf('-');
                 let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
-                // Assuming commands is an array of commands for each plan
-                // and each command has a 'sent' property
-                console.log(sbPlans[actualPlanId]);
-                sbPlans[actualPlanId] = sbPlans[actualPlanId].filter(attack => attack.sent === false);
+
+                let rowsToDelete = [];
+
+                // Filter out commands that have been sent
+                sbPlans[actualPlanId] = sbPlans[actualPlanId].filter(attack => {
+                    if (attack.sent === false) {
+                        return true;
+                    } else {
+                        // Save the row to be deleted
+                        rowsToDelete.push(attack.trAttackId);
+                        return false;
+                    }
+                });
+
+                // Delete the rows from the table
+                for (let rowId of rowsToDelete) {
+                    $(`#${rowId}`).remove();
+                }
+
+                modifyPlan(actualPlanId, sbPlans[actualPlanId]);
                 saveLocalStorage(localStorageSettings);
             });
 
@@ -452,6 +470,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 } else {
                     $('#manageCommandsDiv').show();
                 }
+                Timing.tickHandlers.timers.init();
             }).catch(error => {
                 // Handle any errors here.
                 console.error("Error retrieving plans", error);
@@ -684,9 +703,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                 let distance = getDistanceFromIDs(parseInt(row.originVillageId), parseInt(row.targetVillageId));
                 let unitSpeed = parseInt(worldUnitInfo.config[row.slowestUnit].speed);
-                let sendTimestamp = parseInt(parseInt(row.arrivalTimestamp) - (twSDK.getTravelTimeInSecond(distance, unitSpeed) * 1000));
+                let getTravelTimeInMS = twSDK.getTravelTimeInSecond(distance, unitSpeed) * 1000;
+                let sendTimestamp = parseInt(parseInt(row.arrivalTimestamp) - getTravelTimeInMS);
                 let remainingTimestamp = parseInt(sendTimestamp - Date.now());
-                let remainingTime = convertTimestampToDHMS(remainingTimestamp);
 
                 let sendTime = convertTimestampToDateString(sendTimestamp);
                 let arrivalTime = convertTimestampToDateString(parseInt(row.arrivalTimestamp));
@@ -696,10 +715,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 row.trAttackId = trAttackId;
                 row.remainingTimestamp = remainingTimestamp;
                 row.sent = false;
+
                 tbodyContent += `
             <tr id="${trAttackId}">
                 <td class="ra-tac"><input type="checkbox" id="${checkboxId}"></td>
-                <td class="ra-tac"><a href="/game.php?village=${row.originVillageId}&screen=overview"><span class="quickedit-label">${villageMap.get(parseInt(row.originVillageId))[2]}|${villageMap.get(parseInt(row.originVillageId))[3]}</span></a></td>
+                <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.originVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.originVillageId))[2]}|${villageMap.get(parseInt(row.originVillageId))[3]}</span></a></td>
                 <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.originVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.originVillageId))[4]))[1]}</span></td>
                 <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.targetVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.targetVillageId))[2]}|${villageMap.get(parseInt(row.targetVillageId))[3]}</span></td>
                 <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></td></td>
@@ -707,7 +727,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 <td class="ra-tac">${row.attackType}</td>
                 <td class="ra-tac">${sendTime}</td>
                 <td class="ra-tac">${arrivalTime}</td>
-                <td id="${timeStampId}" class="ra-tac">${remainingTime}</td>
+                <td id="${timeStampId}" class="ra-tac"><span class="timer" data-endtime>${twSDK.secondsToHms(parseInt(remainingTimestamp / 1000))}</span></td>
                 <td id="${buttonSendId}" class="ra-tac"></td>
                 <td id="${buttonDeleteId}" class="ra-tac"></td>
             </tr>
@@ -716,8 +736,55 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return tbodyContent;
         }
 
+        function generateLink(villageId1, villageId2, idInfo, attackType) {
+            let completeLink = getCurrentURL();
+            completeLink += twSDK.sitterId.length > 0
+                ? `?${twSDK.sitterId}&village=${villageId1}&screen=place&target=${villageId2}`
+                : `?village=${villageId1}&screen=place&target=${villageId2}`;
+
+            let villageUnits = unitObject[villageId1];
+            let [planId, _, attackId] = idInfo.split('-');
+            let templateId = planId + "-templateSelector-" + attackType;
+            const localStorageSettings = getLocalStorage();
+            const templateName = localStorageSettings.templateSelections[templateId];
+
+            let template = localStorageSettings.troopTemplates.find(templateObj => templateObj.name === templateName)?.units;
+
+            let unitsToSend = {};
+            for (let unit of game_data.units) {
+                let templateUnit = parseInt(template[unit]);
+
+                if (template[unit] == "all") {
+                    unitsToSend[unit] = villageUnits[unit];
+                } else if (templateUnit >= 0) {
+                    unitsToSend[unit] = Math.min(templateUnit, villageUnits[unit]);
+                } else if (templateUnit < 0) {
+                    let unitAmount = villageUnits[unit] - Math.abs(templateUnit);
+                    if (unitAmount > 0) {
+                        unitsToSend[unit] = unitAmount;
+                    }
+                } else {
+                    console.error(`${scriptInfo} Error in template: ${template}`);
+                }
+            }
+
+            for (let [unit, amount] of Object.entries(unitsToSend)) {
+                completeLink += `&${unit}=${amount}`;
+            }
+
+            return completeLink;
+        }
+
         function createButtons() {
             console.log("Buttons" + sbButtonIDsAPM.length);
+            // Remove existing buttons
+            for (let i = 0; i < sbButtonIDsAPM.length; i++) {
+                let buttonId = sbButtonIDsAPM[i];
+                let parentElement = document.getElementById(buttonId);
+                if (parentElement) {
+                    parentElement.innerHTML = '';
+                }
+            }
             for (let i = 0; i < sbButtonIDsAPM.length; i++) {
                 let buttonId = sbButtonIDsAPM[i];
                 let isSendButton = buttonId.includes('buttonsend');
@@ -727,7 +794,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                     let sendButton = document.createElement("button");
                     sendButton.innerHTML = "Send";
-                    sendButton.id = buttonId;
+                    sendButton.id = buttonId + "Send";
                     sendButton.classList.add("btn"); // Add class
 
                     sendButton.onclick = function () {
@@ -735,7 +802,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         let [planId, _, attackId] = buttonId.split('-');
                         console.log("Send attack", planId, attackId);
                         console.log(sbPlans[planId]);
-                        for (let key in sbPlans[planId]) {
+                        let key;
+                        for (key in sbPlans[planId]) {
                             if (sbPlans[planId][key].attackId === attackId) {
                                 console.log(sbPlans[planId][key]);
                                 sbPlans[planId][key].sent = true;
@@ -743,17 +811,23 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                             }
                         }
                         sendButton.classList.add("btn-confirm-yes");
+                        let originVillageId = parseInt(sbPlans[planId][key].originVillageId);
+                        let targetVillageId = parseInt(sbPlans[planId][key].targetVillageId);
+                        let trAttackId = sbPlans[planId][key].trAttackId;
+                        let attackType = sbPlans[planId][key].attackType;
+                        if (DEBUG) console.debug("Link Info: ", originVillageId, targetVillageId, trAttackId, attackType);
+                        let sendLink = generateLink(originVillageId, targetVillageId, trAttackId, attackType);
+                        window.open(sendLink, '_blank');
                     }
-
                     // Append the button to the correct element
                     let sendParent = document.getElementById(buttonId);
                     sendParent.appendChild(sendButton);
-                }
 
+                }
                 if (isDeleteButton) {
                     let deleteButton = document.createElement("button");
                     deleteButton.innerHTML = "Delete";
-                    deleteButton.id = buttonId;
+                    deleteButton.id = buttonId + "Delete";
                     deleteButton.classList.add("btn"); // Add class
 
                     deleteButton.onclick = function () {
@@ -925,6 +999,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     select.val(savedOption);
                 } else {
                     select.val(troopTemplates[0].name);
+                    localStorageSettings.templateSelections[id] = troopTemplates[0].name;
+                    saveLocalStorage(localStorageSettings);
                 }
 
                 select.on('change', function () {
@@ -1447,6 +1523,109 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 );
                 console.error(`${scriptInfo} Error:`, error);
             }
+        }
+
+        async function fetchTroopsForAllVillages() {
+            const mobileCheck = jQuery('#mobileHeader').length > 0;
+            const troopsForGroup = await jQuery
+                .get(
+                    game_data.link_base_pure +
+                    `overview_villages&mode=combined&group=0&page=-1`
+                )
+                .then(async (response) => {
+                    const htmlDoc = jQuery.parseHTML(response);
+                    const homeTroops = {};
+
+                    if (mobileCheck) {
+                        let table = jQuery(htmlDoc).find('#combined_table tr.nowrap');
+                        for (let i = 0; i < table.length; i++) {
+                            let objTroops = {};
+                            let villageId = parseInt(
+                                table[i]
+                                    .getElementsByClassName('quickedit-vn')[0]
+                                    .getAttribute('data-id')
+                            );
+                            let listTroops = Array.from(
+                                table[i].getElementsByTagName('img')
+                            )
+                                .filter((e) => e.src.includes('unit'))
+                                .map((e) => ({
+                                    name: e.src
+                                        .split('unit_')[1]
+                                        .replace('@2x.png', ''),
+                                    value: parseInt(
+                                        e.parentElement.nextElementSibling.innerText
+                                    ),
+                                }));
+                            listTroops.forEach((item) => {
+                                objTroops[item.name] = item.value;
+                            });
+
+                            objTroops.villageId = villageId;
+                            homeTroops[villageId] = objTroops;
+                        }
+                    } else {
+                        const combinedTableRows = jQuery(htmlDoc).find(
+                            '#combined_table tr.nowrap'
+                        );
+                        const combinedTableHead = jQuery(htmlDoc).find(
+                            '#combined_table tr:eq(0) th'
+                        );
+
+                        const combinedTableHeader = [];
+
+                        // collect possible buildings and troop types
+                        jQuery(combinedTableHead).each(function () {
+                            const thImage = jQuery(this).find('img').attr('src');
+                            if (thImage) {
+                                let thImageFilename = thImage.split('/').pop();
+                                thImageFilename = thImageFilename.replace('.png', '');
+                                combinedTableHeader.push(thImageFilename);
+                            } else {
+                                combinedTableHeader.push(null);
+                            }
+                        });
+
+                        // collect possible troop types
+                        combinedTableRows.each(function () {
+                            let rowTroops = {};
+
+                            combinedTableHeader.forEach((tableHeader, index) => {
+                                if (tableHeader) {
+                                    if (tableHeader.includes('unit_')) {
+                                        const villageId = jQuery(this)
+                                            .find('td:eq(1) span.quickedit-vn')
+                                            .attr('data-id');
+                                        const unitType = tableHeader.replace(
+                                            'unit_',
+                                            ''
+                                        );
+                                        rowTroops = {
+                                            ...rowTroops,
+                                            villageId: parseInt(villageId),
+                                            [unitType]: parseInt(
+                                                jQuery(this)
+                                                    .find(`td:eq(${index})`)
+                                                    .text()
+                                            ),
+                                        };
+                                    }
+                                }
+                            });
+                            homeTroops[rowTroops.villageId] = rowTroops;
+                        });
+                    }
+
+                    return homeTroops;
+                })
+                .catch((error) => {
+                    UI.ErrorMessage(
+                        twSDK.tt('There was an error while fetching the data!')
+                    );
+                    console.error(`${scriptInfo} Error:`, error);
+                });
+
+            return troopsForGroup;
         }
     }
 );

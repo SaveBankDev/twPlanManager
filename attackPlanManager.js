@@ -15,10 +15,12 @@
 if (typeof DEBUG !== 'boolean') DEBUG = false;
 
 // CONSTANTS
-var allIds = [
+var sbAllIdsAPM = [
+    'planSelector',
 ];
-var buttonIDs = [
-];
+var planIds = [];
+var sbButtonIDsAPM = [];
+var sbPlans = {};
 
 
 
@@ -39,6 +41,12 @@ var scriptConfig = {
             'There was an error!': 'There was an error!',
             'Import attack plan:': 'Import attack plan:',
             'Import': 'Import',
+            'Export attack plan:': 'Export attack plan:',
+            'Select attack plan:': 'Select attack plan:',
+            'Export': 'Export',
+            'Reset Input': 'Reset Input',
+            'Save Plan': 'Save Plan',
+            'Delete Plan': 'Delete Plan',
         },
         de_DE: {
             'Redirecting...': 'Weiterleiten...',
@@ -47,6 +55,12 @@ var scriptConfig = {
             'There was an error!': 'Es gab einen Fehler!',
             'Import attack plan:': 'Angriffsplan importieren:',
             'Import': 'Importieren',
+            'Export attack plan:': 'Angriffsplan exportieren:',
+            'Select attack plan:': 'Angriffsplan auswählen:',
+            'Export': 'Exportieren',
+            'Reset Input': 'Eingaben zurücksetzen',
+            'Delete Plan': 'Plan löschen',
+            'Save Plan': 'Plan speichern',
         }
     }
     ,
@@ -117,10 +131,32 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         function renderUI() {
             const style = generateCSS();
             const importContent = generateImport();
+            const exportContent = generateExport();
+            const planSelectorContent = generatePlanSelector();
 
             let content = `
-                <div id="import" class="ra-mb10">
-                    ${importContent}
+                <div class="ra-mb10 sb-grid sb-grid-2">
+                    <fieldset id="import" class="ra-mb10">
+                        ${importContent}
+                    </fieldset>
+                    <fieldset id="export"  class="ra-mb10">
+                        ${exportContent}
+                    </fieldset>
+                </div> 
+                    <fieldset class="ra-mb10 sb-grid sb-grid-4">
+                        <div>
+                            ${planSelectorContent}
+                        </div>
+                        <div>
+                            <button id="savePlan" class="btn">${twSDK.tt('Save Plan')}</button>
+                        </div>
+                        <div>
+                            <button id="deletePlan" class="btn">${twSDK.tt('Delete Plan')}</button>
+                        </div>
+                        <div class="ra-tac">
+                            <button id="resetInput" >${twSDK.tt('Reset Input')}</button>
+                        </div>
+                    </fieldset>
                 </div>
                 <div id="plans" class="ra-mb10">
                 </div>
@@ -139,21 +175,76 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 var importContent = $('#importInput').val();
                 importPlan(importContent);
             });
+            $('#exportPlan').click(function () {
+                localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let exportContent = sbPlans[parseInt(planId.substring(planId.lastIndexOf('-') + 1))];
+                let content = exportWorkbench(exportContent);
+                $('#exportInput').val(content);
+            });
+            $('#resetInput').click(function () {
+                resetInput();
+            });
+            $('#savePlan').click(function () {
+                localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let lastDashIndex = planId.lastIndexOf('-');
+                let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
+                console.log("Save plan", actualPlanId);
+                console.log(sbPlans);
+                console.log(sbPlans[actualPlanId]);
+                modifyPlan(actualPlanId, sbPlans[actualPlanId]);
+            });
+            $('#deletePlan').click(function () {
+                localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let lastDashIndex = planId.lastIndexOf('-');
+                let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
+                console.log("Delete plan", actualPlanId);
+                deletePlan(actualPlanId);
+                if (actualPlanId in sbPlans) {
+                    console.log("Delete plan", actualPlanId);
+                    console.log(sbPlans);
+                    delete sbPlans[actualPlanId];
+                    let index = planIds.indexOf(planId);
+                    if (index !== -1) {
+                        planIds.splice(index, 1);
+                    }
+                }
+                localStorageSettings.planSelector = '---';
+                $(`#${planId}`).hide();
+                saveLocalStorage(localStorageSettings);
+                populatePlanSelector();
+            });
+            $(document).ready(function () {
+                sbAllIdsAPM.forEach(function (id) {
+                    $('#' + id).on('change', handleInputChange);
+                });
+            });
         }
 
         function initializeInputFields() {
+            planIds = [];
+            sbButtonIDsAPM = [];
+            sbPlans = {};
             getAllPlans().then(plans => {
                 if (plans.length > 0) {
-                    $('#plans').html(renderPlan(plans[0]));
+                    for (let i = 0; i < plans.length; i++) {
+                        sbPlans[plans[i].key] = plans[i].plan;
+                        console.log("Plan", plans[i].plan); // Access the plan property
+                        $('#plans').append(`<div id="plan-id-${plans[i].key}" class="ra-mb10">${renderPlan(plans[i].plan, plans[i].key)}</div>`);
+                        planIds.push(`plan-id-${parseInt(plans[i].key)}`); // Use the key as the id
+                        $('#plan-id-' + plans[i].key).hide(); // Use the key as the id
+                    }
                 } else {
                     console.log("No plans found");
                 }
-                console.log(plans);
+                populatePlanSelector();
+                createButtons();
             }).catch(error => {
                 // Handle any errors here.
                 console.error("Error retrieving plans", error);
             });
-
         }
 
         function generateCSS() {
@@ -252,6 +343,23 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     .buttonClicked {
                         background-color: grey;
                     }
+                    #resetInput {
+                        padding: 8px;
+                        font-size: 12px;
+                        color: white;
+                        font-weight: bold;
+                        background: #af281d;
+                        background: linear-gradient(to bottom, #af281d 0%,#801006 100%);
+                        border: 1px solid;
+                        border-color: #006712;
+                        border-radius: 3px;
+                        cursor: pointer;
+                        
+                    }
+                    #resetInput:hover {
+                        background: #c92722;
+                        background: linear-gradient(to bottom, #c92722 0%,#a00d08 100%);
+                    }
             `;
 
             return css;
@@ -269,9 +377,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         * th10: send button
         * th11: delete button
         */
-        function renderPlan(plan) {
+        function renderPlan(plan, id) {
             // Create a HTML string for the table headings.
-            tbodyContent = renderPlanRows(plan);
+            tbodyContent = renderPlanRows(plan, id);
 
             let html = `
         <table class="sbPlan">
@@ -297,22 +405,27 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return html;
         }
 
-        function renderPlanRows(plan) {
+        function renderPlanRows(plan, id) {
             let tbodyContent = '';
             for (let i = 0; i < plan.length; i++) {
+                timeStampId = `${id}-remainingTimestamp-${i}`;
+                buttonSendId = `${id}-buttonsend-${i}`;
+                buttonDeleteId = `${id}-buttondelete-${i}`;
+                sbButtonIDsAPM.push(buttonDeleteId);
+                sbButtonIDsAPM.push(buttonSendId);
+
                 let row = plan[i];
                 let distance = getDistanceFromIDs(parseInt(row.originVillageId), parseInt(row.targetVillageId));
                 let unitSpeed = parseInt(worldUnitInfo.config[row.slowestUnit].speed);
                 let sendTimestamp = parseInt(parseInt(row.arrivalTimestamp) - (twSDK.getTravelTimeInSecond(distance, unitSpeed) * 1000));
                 let remainingTimestamp = parseInt(sendTimestamp - Date.now());
-                let remainingTime = convertTimestampToDateString(remainingTimestamp);
-                let sendButton = createSendButton();
-                let deleteButton = createDeleteButton();
+                let remainingTime = convertTimestampToDHMS(remainingTimestamp);
+
                 let sendTime = convertTimestampToDateString(sendTimestamp);
                 let arrivalTime = convertTimestampToDateString(parseInt(row.arrivalTimestamp));
                 tbodyContent += `
             <tr>
-                <td><a href="/game.php?village=${row.originVillageId}&screen=overview"><span class="quickedit-label">${villageMap.get(parseInt(row.originVillageId))[1]} (${villageMap.get(parseInt(row.originVillageId))[2]}|${villageMap.get(parseInt(row.originVillageId))[3]})</span></a></td>
+                <td><a href="/game.php?village=${row.originVillageId}&screen=overview"><span class="quickedit-label">${villageMap.get(parseInt(row.originVillageId))[2]}|${villageMap.get(parseInt(row.originVillageId))[3]}</span></a></td>
                 <td><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.originVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.originVillageId))[4]))[1]}</span></td>
                 <td><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.targetVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.targetVillageId))[1]} (${villageMap.get(parseInt(row.targetVillageId))[2]}|${villageMap.get(parseInt(row.targetVillageId))[3]})</span></td>
                 <td><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></td></td>
@@ -320,13 +433,52 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 <td>${row.attackType}</td>
                 <td>${sendTime}</td>
                 <td>${arrivalTime}</td>
-                <td id="remainingTimestamp${i}">${remainingTime}</td>
-                <td>${sendButton}</td>
-                <td>${deleteButton}</td>
+                <td id="${timeStampId}">${remainingTime}</td>
+                <td id="${buttonSendId}"></td>
+                <td id="${buttonDeleteId}"></td>
             </tr>
         `;
             }
             return tbodyContent;
+        }
+        function createButtons() {
+            console.log("Buttons" + sbButtonIDsAPM.length);
+            for (let i = 0; i < sbButtonIDsAPM.length; i++) {
+                let buttonId = sbButtonIDsAPM[i];
+                let isSendButton = buttonId.includes('buttonsend');
+                let isDeleteButton = buttonId.includes('buttondelete');
+
+                if (isSendButton) {
+                    let sendButton = document.createElement("button");
+                    sendButton.innerHTML = "Send";
+                    sendButton.id = buttonId;
+
+                    sendButton.onclick = function () {
+                        // send attack
+                        sendButton.classList.add("buttonClicked");
+                    }
+
+                    // Append the button to the correct element
+                    let sendParent = document.getElementById(buttonId);
+                    sendParent.appendChild(sendButton);
+                }
+
+                if (isDeleteButton) {
+                    let deleteButton = document.createElement("button");
+                    deleteButton.innerHTML = "Delete";
+                    deleteButton.id = buttonId;
+
+                    deleteButton.onclick = function () {
+                        // delete attack
+                        let row = deleteButton.parentNode.parentNode;
+                        row.parentNode.removeChild(row);
+                    }
+
+                    // Append the button to the correct element
+                    let deleteParent = document.getElementById(buttonId);
+                    deleteParent.appendChild(deleteButton);
+                }
+            }
         }
 
         // TODO slowest unit to img
@@ -339,32 +491,29 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return date.toLocaleString();
         }
 
+        function convertTimestampToDHMS(timestamp) {
+            let seconds = Math.floor(timestamp / 1000);
+            let days = Math.floor(seconds / 86400);
+            seconds -= days * 86400;
+            let hours = Math.floor(seconds / 3600) % 24;
+            seconds -= hours * 3600;
+            let minutes = Math.floor(seconds / 60) % 60;
+            seconds -= minutes * 60;
+
+            // Pad the minutes and seconds with leading zeros, if required
+            hours = hours < 10 ? "0" + hours : hours;
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+
+            // Format the output as "DD:hh:mm:ss"
+            let timeString = `${days > 0 ? days + ":" : ""}${hours}:${minutes}:${seconds}`;
+
+            return timeString;
+        }
+
         // TODO remaining time to date with updates (we have ids for each row)
 
 
-        // TODO send button to send the attack
-        function createSendButton() {
-            let button = document.createElement("button");
-            button.innerHTML = "Send";
-
-            button.onclick = function () {
-                // send attack
-                button.classList.add("buttonClicked");
-            }
-            return button;
-        }
-        // TODO delete button to delete the attack
-        function createDeleteButton() {
-            let button = document.createElement("button");
-            button.innerHTML = "Delete";
-            button.onclick = function () {
-                // delete attack
-                let row = button.parentNode.parentNode;
-                row.parentNode.removeChild(row);
-            }
-            
-            return button;
-        }
 
         function getDistanceFromIDs(originVillageId, targetVillageId) {
             let originVillage = villageMap.get(originVillageId)[2] + "|" + villageMap.get(originVillageId)[3];
@@ -374,27 +523,75 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
 
         function generateImport() {
-            const fieldset = `
-                <fieldset>
-                    <legend>${twSDK.tt('Import attack plan:')}</legend>
-                    <textarea id="importInput" class="sb-input-textarea"></textarea>
-                    
-                </fieldset>
+            const html = `
+                <legend>${twSDK.tt('Import attack plan:')}</legend>
+                <textarea id="importInput" class="sb-input-textarea"></textarea>
                 <div class="ra-mb10">
                     <button id="importPlan" class="btn">${twSDK.tt('Import')}</button>
                 </div>
             `;
-            return fieldset;
+            return html;
         }
+
+        function generateExport() {
+            const html = `
+
+                    <legend>${twSDK.tt('Export attack plan:')}</legend>
+                    <textarea id="exportInput" class="sb-input-textarea"></textarea>
+                
+                <div class="ra-mb10">
+                <button id="exportPlan" class="btn">${twSDK.tt('Export')}</button>
+            </div>
+            `;
+            return html;
+        }
+
+        function generatePlanSelector() {
+            const html = `
+                    <legend>${twSDK.tt('Select attack plan:')}</legend>
+                    <select id="planSelector" class="sb-input-select">
+                        <option value="---">---</option>
+                    </select>
+                
+            `;
+            return html;
+        }
+        function populatePlanSelector() {
+            let planSelector = document.getElementById('planSelector');
+            $("#planSelector option").each(function () {
+                if ($(this).val() !== '---') {
+                    $(this).remove();
+                }
+            });
+            for (let i = 0; i < planIds.length; i++) {
+                let option = document.createElement('option');
+                option.value = planIds[i];
+                option.text = planIds[i];
+                planSelector.appendChild(option);
+            }
+            let localStorageSettings = getLocalStorage();
+            console.log(localStorageSettings.planSelector);
+            if (localStorageSettings.planSelector !== '---') {
+                planSelector.value = localStorageSettings.planSelector;
+                $(`#${localStorageSettings.planSelector}`).show();
+            }
+        }
+
 
         function importPlan(content) {
             let plan = convertWBPlanToArray(content);
 
             // Save plan in indexed db
-            addPlan(plan);
-
-            console.log(plan);
-            $('#plans').html(renderPlan(plan));
+            addPlan(plan)
+                .then(() => {
+                    console.log("Plan added successfully");
+                    console.log(plan);
+                    initializeInputFields();
+                    populatePlanSelector();
+                })
+                .catch(error => {
+                    console.error("Error adding plan", error);
+                });
         }
 
         function convertWBPlanToArray(plan) {
@@ -487,8 +684,35 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             };
         }
 
-        // This function adds a plan to the "Plans" object store.
         function addPlan(plan) {
+            return new Promise((resolve, reject) => {
+                let openRequest = indexedDB.open("sbAttackPlanManager");
+
+                openRequest.onsuccess = function (event) {
+                    let db = event.target.result;
+                    let transaction = db.transaction(["Plans"], "readwrite");
+                    let objectStore = transaction.objectStore("Plans");
+                    let addRequest = objectStore.add(plan);
+
+                    addRequest.onsuccess = function (event) {
+                        console.log("Plan added successfully");
+                        resolve(); // Resolve the promise when the plan is added successfully
+                    };
+
+                    addRequest.onerror = function (event) {
+                        console.log("Error adding plan", event);
+                        reject(event); // Reject the promise if there's an error
+                    };
+                };
+
+                openRequest.onerror = function (event) {
+                    console.log("Error opening database", event);
+                    reject(event); // Reject the promise if there's an error
+                };
+            });
+        }
+
+        function modifyPlan(planId, plan) {
             // Open a connection to the database.
             let openRequest = indexedDB.open("sbAttackPlanManager");
 
@@ -502,18 +726,18 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 // Get the "Plans" object store from the transaction.
                 let objectStore = transaction.objectStore("Plans");
 
-                // Add the plan to the object store.
-                // The add method takes two parameters:
-                // 1. The record to add.
+                // Modify the plan in the object store.
+                // The put method takes two parameters:
+                // 1. The record to add or update.
                 // 2. The key to use for the record. This is optional when the object store has autoIncrement true.
-                let addRequest = objectStore.add(plan);
+                let putRequest = objectStore.put(plan, planId);
 
-                addRequest.onsuccess = function (event) {
-                    console.log("Plan added successfully");
+                putRequest.onsuccess = function (event) {
+                    console.log("Plan modified successfully", event);
                 };
 
-                addRequest.onerror = function (event) {
-                    console.log("Error adding plan", event);
+                putRequest.onerror = function (event) {
+                    console.log("Error modifying plan", event);
                 };
             };
 
@@ -521,43 +745,43 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 console.log("Error opening database", event);
             };
         }
-
         // This function retrieves all plans from the "Plans" object store.
         function getAllPlans() {
             return new Promise((resolve, reject) => {
-                // Open a connection to the database.
                 let openRequest = indexedDB.open("sbAttackPlanManager");
 
                 openRequest.onsuccess = function (event) {
                     let db = event.target.result;
-
-                    // Start a new transaction with the "Plans" object store.
-                    // The "readonly" parameter means that the transaction will only allow read operations.
                     let transaction = db.transaction(["Plans"], "readonly");
-
-                    // Get the "Plans" object store from the transaction.
                     let objectStore = transaction.objectStore("Plans");
 
-                    // Get all plans from the object store.
-                    // The getAll method retrieves all records from the object store.
-                    let getAllRequest = objectStore.getAll();
+                    // Use openCursor instead of getAll
+                    let cursorRequest = objectStore.openCursor();
 
-                    getAllRequest.onsuccess = function (event) {
-                        // The result of the request is an array of records.
-                        let plans = event.target.result;
-                        console.log("Plans retrieved successfully", plans);
-                        resolve(plans); // Resolve the promise with the plans.
+                    let plans = [];
+
+                    cursorRequest.onsuccess = function (event) {
+                        let cursor = event.target.result;
+                        if (cursor) {
+                            // Push an object with both the key and the value to the plans array
+                            plans.push({ key: cursor.key, plan: cursor.value });
+                            cursor.continue();
+                        } else {
+                            // No more results
+                            console.log("Plans retrieved successfully", plans);
+                            resolve(plans);
+                        }
                     };
 
-                    getAllRequest.onerror = function (event) {
+                    cursorRequest.onerror = function (event) {
                         console.log("Error retrieving plans", event);
-                        reject(event); // Reject the promise with the error event.
+                        reject(event);
                     };
                 };
 
                 openRequest.onerror = function (event) {
                     console.log("Error opening database", event);
-                    reject(event); // Reject the promise with the error event.
+                    reject(event);
                 };
             });
         }
@@ -582,7 +806,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let deleteRequest = objectStore.delete(planId);
 
                 deleteRequest.onsuccess = function (event) {
-                    console.log("Plan deleted successfully");
+                    console.log("Plan deleted successfully", event);
                 };
 
                 deleteRequest.onerror = function (event) {
@@ -627,6 +851,71 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 console.log("Error opening database", event);
             };
         }
+
+        function resetInput() {
+            let localStorageSettings = getLocalStorage();
+            localStorageSettings.planSelector = '---';
+            saveLocalStorage(localStorageSettings);
+            renderUI();
+            addEventHandlers();
+            initializeInputFields();
+        }
+
+        function handleInputChange() {
+            const inputId = $(this).attr('id');
+            let inputValue;
+
+            switch (inputId) {
+                case "planSelector":
+                    inputValue = $(this).val();
+                    for (let planId of planIds) {
+                        if (planId === inputValue) {
+                            $(`#${planId}`).show();
+                        } else {
+                            $(`#${planId}`).hide();
+                        }
+                    }
+                    break;
+                default:
+                    console.error(`${scriptInfo}: Unknown id: ${inputId}`)
+            }
+            if (DEBUG) console.debug(`${scriptInfo}: ${inputId} changed to ${inputValue}`)
+            const settingsObject = getLocalStorage();
+            settingsObject[inputId] = inputValue;
+            saveLocalStorage(settingsObject);
+        }
+
+        function getLocalStorage() {
+            const localStorageSettings = JSON.parse(localStorage.getItem('sbAttackPlanManager'));
+            // Check if all expected settings are in localStorageSettings
+            const expectedSettings = [
+                'planSelector',
+            ];
+
+            let missingSettings = [];
+            if (localStorageSettings) {
+                missingSettings = expectedSettings.filter(setting => !(setting in localStorageSettings));
+                if (DEBUG && missingSettings.length > 0) console.debug(`${scriptInfo}: Missing settings in localStorage: `, missingSettings);
+            }
+
+            if (localStorageSettings && missingSettings.length === 0) {
+                // If settings exist in localStorage  return the object
+                return localStorageSettings;
+            } else {
+                const defaultSettings = {
+                    planSelector: '---',
+                };
+
+                saveLocalStorage(defaultSettings);
+
+                return defaultSettings;
+            }
+        }
+        function saveLocalStorage(settingsObject) {
+            // Stringify and save the settings object
+            localStorage.setItem('sbAttackPlanManager', JSON.stringify(settingsObject));
+        }
+
         async function fetchWorldConfigData() {
             try {
                 const villages = await twSDK.worldDataAPI('village');

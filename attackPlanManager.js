@@ -64,6 +64,7 @@ var scriptConfig = {
             'Load Troop Templates': 'Load Troop Templates',
             'Rename Plan': 'Rename Plan',
             'Unit Preview': 'Unit Preview',
+            'Template Preview': 'Template Preview',
         },
         de_DE: {
             'Redirecting...': 'Weiterleiten...',
@@ -93,6 +94,7 @@ var scriptConfig = {
             'Load Troop Templates': 'Truppenvorlagen laden',
             'Rename Plan': 'Plan umbenennen',
             'Unit Preview': 'Truppenvorschau',
+            'Template Preview': 'Vorlagenvorschau',
         }
     }
     ,
@@ -309,7 +311,103 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                 // Save the updated localStorageSettings object to localStorage
                 saveLocalStorage(localStorageSettings);
+                populatePlanSelector();
             });
+            $('#buttonDeleteAll').click(function () {
+                let localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let lastDashIndex = planId.lastIndexOf('-');
+                let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
+
+                // Remove all corresponding rows from the table
+                for (let command of sbPlans[actualPlanId]) {
+                    $(`#${command.trAttackId}`).remove();
+                }
+
+                // Clear all commands for the plan
+                sbPlans[actualPlanId] = [];
+                modifyPlan(actualPlanId, sbPlans[actualPlanId]);
+                saveLocalStorage(localStorageSettings);
+            });
+
+            $('#buttonDeleteExpired').click(function () {
+                let localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let lastDashIndex = planId.lastIndexOf('-');
+                let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
+
+                // Get the current timestamp
+                let now = Date.now();
+
+                // Filter out commands that have a sendTimestamp in the past
+                let rowsToRemove = [];
+                sbPlans[actualPlanId] = sbPlans[actualPlanId].filter(command => {
+                    if (command.sendTimestamp > now) {
+                        return true;
+                    } else {
+                        // Save the ID of the row to be removed
+                        rowsToRemove.push(command.trAttackId);
+                        return false;
+                    }
+                });
+
+                // Remove the rows from the table
+                for (let rowId of rowsToRemove) {
+                    $(`#${rowId}`).remove();
+                }
+
+                modifyPlan(actualPlanId, sbPlans[actualPlanId]);
+                saveLocalStorage(localStorageSettings);
+            });
+
+            $('#buttonDeleteSent').click(function () {
+                let localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let lastDashIndex = planId.lastIndexOf('-');
+                let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
+                // Assuming commands is an array of commands for each plan
+                // and each command has a 'sent' property
+                console.log(sbPlans[actualPlanId]);
+                sbPlans[actualPlanId] = sbPlans[actualPlanId].filter(attack => attack.sent === false);
+                saveLocalStorage(localStorageSettings);
+            });
+
+            $('#buttonDeleteSelected').click(function () {
+                let localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let lastDashIndex = planId.lastIndexOf('-');
+                let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
+
+                let rowsToDelete = [];
+                let commandsToDelete = [];
+
+                for (let command of sbPlans[actualPlanId]) {
+                    if (command.checkboxId && $(`#${command.checkboxId}`).is(':checked')) {
+                        console.log("Checkbox id", command.checkboxId);
+                        console.log("Checkbox checked", $(`#${command.checkboxId}`).is(':checked'));
+
+                        // Save the row to be deleted
+                        let row = $(`#${command.trAttackId}`);
+                        rowsToDelete.push(row);
+
+                        // Save the command to be deleted
+                        commandsToDelete.push(command);
+                    }
+                }
+
+                // Delete the rows from the table
+                for (let row of rowsToDelete) {
+                    row.remove();
+                }
+
+                // Delete the commands from the plan
+                sbPlans[actualPlanId] = sbPlans[actualPlanId].filter(command => !commandsToDelete.includes(command));
+
+                modifyPlan(actualPlanId, sbPlans[actualPlanId]);
+                saveLocalStorage(localStorageSettings);
+            });
+            // send by number button id buttonByNumber
+            // send by time button id buttonByTime
             $('#buttonLoadTemplates').click(async function () {
                 await getTroopTemplates();
             });
@@ -486,6 +584,32 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     #templateTable {
                         width: 100%;
                     }
+                    #templateTable td {
+                        height: 100%;
+                    }
+
+                    #templateTable td {
+                        flex: 1;
+                    }
+
+                    .templateContainer {
+                        display: flex;
+                        flex-direction: row;
+                        justify-content: space-between;
+                    }
+
+                    .templateContainer div {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        flex: 1;
+                        border-left: 1px solid #ccc;
+                        padding-left: 10px;
+                    }
+
+                    .templateContainer div:first-child {
+                        border-left: none;
+                    }
             `;
 
             return css;
@@ -566,6 +690,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                 let sendTime = convertTimestampToDateString(sendTimestamp);
                 let arrivalTime = convertTimestampToDateString(parseInt(row.arrivalTimestamp));
+                row.sendTimestamp = sendTimestamp;
+                row.checkboxId = checkboxId;
+                row.buttonSendId = buttonSendId;
+                row.trAttackId = trAttackId;
+                row.remainingTimestamp = remainingTimestamp;
+                row.sent = false;
                 tbodyContent += `
             <tr id="${trAttackId}">
                 <td class="ra-tac"><input type="checkbox" id="${checkboxId}"></td>
@@ -585,6 +715,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             }
             return tbodyContent;
         }
+
         function createButtons() {
             console.log("Buttons" + sbButtonIDsAPM.length);
             for (let i = 0; i < sbButtonIDsAPM.length; i++) {
@@ -593,6 +724,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let isDeleteButton = buttonId.includes('buttondelete');
 
                 if (isSendButton) {
+
                     let sendButton = document.createElement("button");
                     sendButton.innerHTML = "Send";
                     sendButton.id = buttonId;
@@ -600,7 +732,17 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                     sendButton.onclick = function () {
                         // send attack
-                        sendButton.classList.add("buttonClicked");
+                        let [planId, _, attackId] = buttonId.split('-');
+                        console.log("Send attack", planId, attackId);
+                        console.log(sbPlans[planId]);
+                        for (let key in sbPlans[planId]) {
+                            if (sbPlans[planId][key].attackId === attackId) {
+                                console.log(sbPlans[planId][key]);
+                                sbPlans[planId][key].sent = true;
+                                break;
+                            }
+                        }
+                        sendButton.classList.add("btn-confirm-yes");
                     }
 
                     // Append the button to the correct element
@@ -629,6 +771,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                                 plan.splice(attackIndex, 1);
                             }
                         }
+                        modifyPlan(planId, plan);
                     }
 
                     // Append the button to the correct element
@@ -638,11 +781,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             }
         }
 
-        // TODO slowest unit to img
-
         // TODO attack type to img
-
-        // TODO timestamp to date
         function convertTimestampToDateString(timestamp) {
             let date = new Date(timestamp);
             let options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
@@ -719,7 +858,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     <tr>
                         <th>${twSDK.tt('Attack type')}</th>
                         <th>${twSDK.tt('Unit Template')}</th>
-                        <th class="templateContainer">${unitImages}</th>
+                        <th>${twSDK.tt('Template Preview')}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -784,6 +923,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let savedOption = localStorageSettings.templateSelections[id];
                 if (savedOption) {
                     select.val(savedOption);
+                } else {
+                    select.val(troopTemplates[0].name);
                 }
 
                 select.on('change', function () {
@@ -803,13 +944,18 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 templateCell.append(select);
                 // Create a preview of the troops in the template in the third column
                 let previewCell = $('<td class="templateContainer"></td>');
-                let selectedTemplate = troopTemplates.find(template => template.name === localStorageSettings.templateSelections[id]);
+                let selectedTemplate = troopTemplates.find(template => template.name === localStorageSettings.templateSelections[id]) || troopTemplates[0];
                 if (selectedTemplate) {
                     for (let unit in selectedTemplate.units) {
+                        if (unit === "militia") continue;
                         let unitAmount = selectedTemplate.units[unit];
+                        let unitImage = $(`<img class="unitImage" src="/graphic/unit/unit_${unit}.png" alt="${unit}"> `);
                         let unitPreview = $(`
-                            <span class="unitAmount">${unitAmount}</span>
-                    `);
+                <div>
+                    ${unitImage.prop('outerHTML')}
+                    <span>${unitAmount}</span>
+                </div>
+            `);
                         previewCell.append(unitPreview);
                     }
                 }
@@ -819,49 +965,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                 table.find('tbody').append(row);
             }
-        }
-
-        function buildUnitsPicker(unitsToIgnore, id_prefix, type = 'checkbox') {
-            let unitsTable = ``;
-
-            let thUnits = ``;
-            let tableRow = ``;
-
-            game_data.units.forEach((unit) => {
-                if (!unitsToIgnore.includes(unit)) {
-
-                    thUnits += `
-                        <th class="ra-text-center">
-                            <label for="${id_prefix}_unit_${unit}">
-                                <img src="/graphic/unit/unit_${unit}.png">
-                            </label>
-                        </th>
-                    `;
-
-                    tableRow += `
-                        <td class="ra-text-center">
-                            <input name="ra_chosen_units" type="${type}" id="${id_prefix}_unit_${unit}" class="ra-unit-selector" value="0" />
-                        </td>
-                    `;
-                }
-            });
-
-            unitsTable = `
-                <table class="ra-table ra-table-v2" width="100%" id="${id_prefix}_raUnitSelector">
-                    <thead>
-                        <tr>
-                            ${thUnits}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            ${tableRow}
-                        </tr>
-                    </tbody>
-                </table>
-            `;
-
-            return unitsTable;
         }
 
         function generatePlanSelector() {

@@ -17,6 +17,8 @@ if (typeof DEBUG !== 'boolean') DEBUG = false;
 // CONSTANTS
 var sbAllIdsAPM = [
     'planSelector',
+    'sendByTime',
+    'sendByNumber',
 ];
 var planIds = [];
 var sbButtonIDsAPM = [];
@@ -50,7 +52,18 @@ var scriptConfig = {
             'Attack type': 'Attack type',
             'Unit Template': 'Unit Template',
             'Loading': 'Loading',
+            'Select unit template:': 'Select unit template:',
+            'Manage Commands': 'Manage Commands',
+            'Send by Time (min)': 'Send by Time (min)',
+            'Send': 'Send',
+            'Send by Number': 'Send by Number',
+            'Delete selected commands': 'Delete selected commands',
+            'Delete sent commands': 'Delete sent commands',
+            'Delete expired commands': 'Delete expired commands',
+            'Delete all commands': 'Delete all commands',
             'Load Troop Templates': 'Load Troop Templates',
+            'Rename Plan': 'Rename Plan',
+            'Unit Preview': 'Unit Preview',
         },
         de_DE: {
             'Redirecting...': 'Weiterleiten...',
@@ -68,7 +81,18 @@ var scriptConfig = {
             'Attack type': 'Angriffstyp',
             'Unit Template': 'Truppenvorlage',
             'Loading': 'Lade',
+            'Select unit template:': 'Truppenvorlage auswählen:',
+            'Manage Commands': 'Befehle verwalten',
+            'Send by Time (min)': 'Senden nach Zeit (min)',
+            'Send': 'Senden',
+            'Send by Number': 'Senden nach Anzahl',
+            'Delete selected commands': 'Ausgewählte Befehle löschen',
+            'Delete sent commands': 'Gesendete Befehle löschen',
+            'Delete expired commands': 'Abgelaufene Befehle löschen',
+            'Delete all commands': 'Alle Befehle löschen',
             'Load Troop Templates': 'Truppenvorlagen laden',
+            'Rename Plan': 'Plan umbenennen',
+            'Unit Preview': 'Truppenvorschau',
         }
     }
     ,
@@ -112,7 +136,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         });
 
         const endTime = performance.now();
-        if (DEBUG) console.debug(`${scriptInfo}: Troop templates: ${templates}`);
         if (DEBUG) console.debug(`${scriptInfo}: Startup time: ${(endTime - startTime).toFixed(2)} milliseconds`);
         if (DEBUG) console.debug(`${scriptInfo} worldUnitInfo: `, worldUnitInfo);
         if (DEBUG) console.debug(`${scriptInfo} worldConfig: `, worldConfig);
@@ -125,6 +148,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         (async function () {
             try {
                 const startTime = performance.now();
+                await getTroopTemplates();
                 openDatabase();
                 renderUI();
                 addEventHandlers();
@@ -154,27 +178,57 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     </fieldset>
                 </div> 
                 <div>
-                    <fieldset class="ra-mb10 sb-grid sb-grid-5">
+                    <fieldset class="ra-mb10 sb-grid sb-grid-6">
                         <div>
                             ${planSelectorContent}
                         </div>
                         <div>
-                            <button id="savePlan" class="btn">${twSDK.tt('Save Plan')}</button>
+                            <button id="savePlan" class="btn btn-bottom">${twSDK.tt('Save Plan')}</button>
                         </div>
                         <div>
-                            <button id="deletePlan" class="btn">${twSDK.tt('Delete Plan')}</button>
+                            <button id="renamePlan" class="btn btn-bottom">${twSDK.tt('Rename Plan')}</button>
                         </div>
                         <div>
-                           <button id="loadTroopTemplates" class="btn">${twSDK.tt('Load Troop Templates')}</button>
+                            <button id="deletePlan" class="btn btn-bottom">${twSDK.tt('Delete Plan')}</button>
+                        </div>
+                        <div>
+                            <button id="buttonLoadTemplates" class="btn btn-bottom">${twSDK.tt('Load Troop Templates')}</button>
                         </div>
                         <div class="ra-tac">
-                            <button id="resetInput" >${twSDK.tt('Reset Input')}</button>
+                            <button id="resetInput" class="btn btn-bottom" >${twSDK.tt('Reset Input')}</button>
                         </div>
                     </fieldset>
                 </div>
-                <div>
+                <div id="templateDiv" style="display: none;">
                     <fieldset class="ra-mb10">
                         ${unitSelectorContent}
+                    </fieldset>
+                </div>
+                <div id="manageCommandsDiv" style="display: none;">
+                    <fieldset class="ra-mb10 sb-grid sb-grid-6">
+                        <legend>${twSDK.tt('Manage Commands')}</legend>
+                        <div>
+                            <label for="sendByTime">${twSDK.tt('Send by Time (min)')}</label>
+                            <input type="number" id="sendByTime">
+                            <button id="buttonByTime" class="btn btn-bottom">${twSDK.tt('Send')}</button>
+                        </div>
+                        <div>
+                            <label for="sendByNumber">${twSDK.tt('Send by Number')}</label>
+                            <input type="number" id="sendByNumber">
+                            <button id="buttonByNumber" class="btn btn-bottom">${twSDK.tt('Send')}</button>
+                        </div>
+                        <div>
+                            <button id="buttonDeleteSelected" class="btn btn-bottom">${twSDK.tt('Delete selected commands')}</button>
+                        </div>
+                        <div>
+                            <button id="buttonDeleteSent" class="btn btn-bottom">${twSDK.tt('Delete sent commands')}</button>
+                        </div>
+                        <div>
+                            <button id="buttonDeleteExpired" class="btn btn-bottom">${twSDK.tt('Delete expired commands')}</button>
+                        </div>
+                        <div class="btn-bottom">
+                            <button id="buttonDeleteAll" class="btn">${twSDK.tt('Delete all commands')}</button>
+                        </div>
                     </fieldset>
                 </div>
                 <div id="sbPlansDiv" class="ra-mb10">
@@ -195,7 +249,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 importPlan(importContent);
             });
             $('#exportPlan').click(function () {
-                localStorageSettings = getLocalStorage();
+                let localStorageSettings = getLocalStorage();
                 let planId = localStorageSettings.planSelector;
                 let exportContent = sbPlans[parseInt(planId.substring(planId.lastIndexOf('-') + 1))];
                 let content = exportWorkbench(exportContent);
@@ -205,7 +259,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 resetInput();
             });
             $('#savePlan').click(function () {
-                localStorageSettings = getLocalStorage();
+                let localStorageSettings = getLocalStorage();
                 let planId = localStorageSettings.planSelector;
                 let lastDashIndex = planId.lastIndexOf('-');
                 let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
@@ -215,7 +269,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 modifyPlan(actualPlanId, sbPlans[actualPlanId]);
             });
             $('#deletePlan').click(function () {
-                localStorageSettings = getLocalStorage();
+                let localStorageSettings = getLocalStorage();
                 let planId = localStorageSettings.planSelector;
                 let lastDashIndex = planId.lastIndexOf('-');
                 let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
@@ -234,6 +288,30 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 $(`#${planId}`).hide();
                 saveLocalStorage(localStorageSettings);
                 populatePlanSelector();
+            });
+            $('#renamePlan').click(function () {
+                let localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let planNames = localStorageSettings.planNames;
+                let newPlanName = planId;
+                if (planNames[planId]) {
+                    let savedPlanName = planNames[planId];
+                    newPlanName = prompt("Please enter the new name for the plan", savedPlanName);
+                } else {
+                    newPlanName = prompt("Please enter the new name for the plan", planId);
+                }
+
+                // Map the planId to the newPlanName
+                planNames[planId] = newPlanName;
+
+                // Update the localStorageSettings object
+                localStorageSettings.planNames = planNames;
+
+                // Save the updated localStorageSettings object to localStorage
+                saveLocalStorage(localStorageSettings);
+            });
+            $('#buttonLoadTemplates').click(async function () {
+                await getTroopTemplates();
             });
             $(document).ready(function () {
                 sbAllIdsAPM.forEach(function (id) {
@@ -260,15 +338,35 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 }
                 populatePlanSelector();
                 createButtons();
+                fillTemplateTable();
+                let localStorageSettings = getLocalStorage();
+                let sendByTime = localStorageSettings.sendByTime;
+                let sendByNumber = localStorageSettings.sendByNumber;
+                let planSelector = localStorageSettings.planSelector;
+                if (sendByTime) {
+                    $('#sendByTime').val(sendByTime);
+                }
+                if (sendByNumber) {
+                    $('#sendByNumber').val(sendByNumber);
+                }
+                if (planSelector === '---') {
+                    $('#manageCommandsDiv').hide();
+                } else {
+                    $('#manageCommandsDiv').show();
+                }
             }).catch(error => {
                 // Handle any errors here.
                 console.error("Error retrieving plans", error);
             });
+
         }
 
         function generateCSS() {
 
             let css = `
+                    .sb-grid-6 {
+                        grid-template-columns: repeat(6, 1fr);
+                    }
                     .sb-grid-5 {
                         grid-template-columns: repeat(5, 1fr);
                     }
@@ -379,6 +477,15 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         background: #c92722;
                         background: linear-gradient(to bottom, #c92722 0%,#a00d08 100%);
                     }
+                    .sbPlan tr {
+                        white-space: nowrap;
+                    }
+                    .btn-bottom {
+                        vertical-align: bottom;
+                    }
+                    #templateTable {
+                        width: 100%;
+                    }
             `;
 
             return css;
@@ -401,20 +508,21 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             tbodyContent = renderPlanRows(plan, id);
 
             let html = `
-        <table class="sbPlan">
+        <table class="sbPlan ra-table">
             <thead>
                 <tr>
-                    <th>Origin Village ID</th>
-                    <th>Origin Player</th>
-                    <th>Target Village ID</th>
-                    <th>Target Player</th>
-                    <th>Slowest Unit</th>
-                    <th>Type</th>
-                    <th>Send Time</th>
-                    <th>Arrival Time</th>
-                    <th>Remaining Time</th>
-                    <th>Send Button</th>
-                    <th>Delete Button</th>
+                    <th></th>
+                    <th class="ra-tac">Origin Village</th>
+                    <th class="ra-tac">Attacker</th>
+                    <th class="ra-tac">Target Village</th>
+                    <th class="ra-tac">Defender</th>
+                    <th class="ra-tac">Unit</th>
+                    <th class="ra-tac">Type</th>
+                    <th class="ra-tac">Send Time</th>
+                    <th class="ra-tac">Arrival Time</th>
+                    <th class="ra-tac">Remaining Time</th>
+                    <th></th>
+                    <th></th>
                 </tr>
             </thead>
             ${tbodyContent}
@@ -442,9 +550,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             for (let i = 0; i < plan.length; i++) {
                 let row = plan[i];
                 let attackId = row.attackId;
-                timeStampId = `${id}-remainingTimestamp-${attackId}`;
-                buttonSendId = `${id}-buttonsend-${attackId}`;
-                buttonDeleteId = `${id}-buttondelete-${attackId}`;
+                let timeStampId = `${id}-remainingTimestamp-${attackId}`;
+                let buttonSendId = `${id}-buttonsend-${attackId}`;
+                let buttonDeleteId = `${id}-buttondelete-${attackId}`;
+                let checkboxId = `${id}-checkbox-${attackId}`;
+                let trAttackId = `${id}-attackId-${attackId}`;
                 sbButtonIDsAPM.push(buttonDeleteId);
                 sbButtonIDsAPM.push(buttonSendId);
 
@@ -457,18 +567,19 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let sendTime = convertTimestampToDateString(sendTimestamp);
                 let arrivalTime = convertTimestampToDateString(parseInt(row.arrivalTimestamp));
                 tbodyContent += `
-            <tr>
-                <td><a href="/game.php?village=${row.originVillageId}&screen=overview"><span class="quickedit-label">${villageMap.get(parseInt(row.originVillageId))[2]}|${villageMap.get(parseInt(row.originVillageId))[3]}</span></a></td>
-                <td><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.originVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.originVillageId))[4]))[1]}</span></td>
-                <td><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.targetVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.targetVillageId))[2]}|${villageMap.get(parseInt(row.targetVillageId))[3]}</span></td>
-                <td><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></td></td>
-                <td>${row.slowestUnit}</td>
-                <td>${row.attackType}</td>
-                <td>${sendTime}</td>
-                <td>${arrivalTime}</td>
-                <td id="${timeStampId}">${remainingTime}</td>
-                <td id="${buttonSendId}"></td>
-                <td id="${buttonDeleteId}"></td>
+            <tr id="${trAttackId}">
+                <td class="ra-tac"><input type="checkbox" id="${checkboxId}"></td>
+                <td class="ra-tac"><a href="/game.php?village=${row.originVillageId}&screen=overview"><span class="quickedit-label">${villageMap.get(parseInt(row.originVillageId))[2]}|${villageMap.get(parseInt(row.originVillageId))[3]}</span></a></td>
+                <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.originVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.originVillageId))[4]))[1]}</span></td>
+                <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.targetVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.targetVillageId))[2]}|${villageMap.get(parseInt(row.targetVillageId))[3]}</span></td>
+                <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></td></td>
+                <td class="ra-tac"><img src="https://dsde.innogamescdn.com/asset/9f9563bf/graphic/unit/unit_${row.slowestUnit}.png"></td>
+                <td class="ra-tac">${row.attackType}</td>
+                <td class="ra-tac">${sendTime}</td>
+                <td class="ra-tac">${arrivalTime}</td>
+                <td id="${timeStampId}" class="ra-tac">${remainingTime}</td>
+                <td id="${buttonSendId}" class="ra-tac"></td>
+                <td id="${buttonDeleteId}" class="ra-tac"></td>
             </tr>
         `;
             }
@@ -485,6 +596,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     let sendButton = document.createElement("button");
                     sendButton.innerHTML = "Send";
                     sendButton.id = buttonId;
+                    sendButton.classList.add("btn"); // Add class
 
                     sendButton.onclick = function () {
                         // send attack
@@ -500,6 +612,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     let deleteButton = document.createElement("button");
                     deleteButton.innerHTML = "Delete";
                     deleteButton.id = buttonId;
+                    deleteButton.classList.add("btn"); // Add class
+
                     deleteButton.onclick = function () {
                         // delete attack
                         let [planId, _, attackId] = buttonId.split('-');
@@ -531,7 +645,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         // TODO timestamp to date
         function convertTimestampToDateString(timestamp) {
             let date = new Date(timestamp);
-            return date.toLocaleString();
+            let options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            return `${date.toLocaleDateString(undefined, options)}`;
         }
 
         function convertTimestampToDHMS(timestamp) {
@@ -590,13 +705,21 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
 
         function generateUnitSelector() {
+            units = game_data.units;
+            let unitImages = '';
+            for (let unit of units) {
+                if (unit == "militia") continue;
+                unitImages += `<img class="unitImage" src="/graphic/unit/unit_${unit}.png" alt="${unit}"> `;
+            }
+
             const html = `
-            <legend>${twSDK.tt('Select unit template plan:')}</legend>
-            <table>
+            <legend>${twSDK.tt('Select unit template:')}</legend>
+            <table id="templateTable" class="ra-mb10 ra-table">
                 <thead>
                     <tr>
                         <th>${twSDK.tt('Attack type')}</th>
                         <th>${twSDK.tt('Unit Template')}</th>
+                        <th class="templateContainer">${unitImages}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -606,6 +729,141 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
             return html;
         }
+
+        function fillTemplateTable() {
+            let table = $('#templateTable');
+            let templateDiv = $('#templateDiv');
+            let localStorageSettings = getLocalStorage();
+            let troopTemplates = localStorageSettings.troopTemplates;
+            let planId = localStorageSettings.planSelector;
+            let lastDashIndex = planId.lastIndexOf('-');
+            let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
+            let plan = sbPlans[actualPlanId];
+            let attackTypes = [];
+
+            if (DEBUG) console.debug("Unit templates", troopTemplates);
+
+            // Check what plan is selected
+            if (planId === "---") {
+                templateDiv.hide();
+                return;
+            } else {
+                templateDiv.show();
+            }
+
+            // Check which attack types are in the plan
+            for (let attack of plan) {
+                if (!attackTypes.includes(attack.attackType)) {
+                    attackTypes.push(attack.attackType);
+                }
+            }
+            if (DEBUG) console.debug("Attack types", attackTypes);
+
+            // Clear the table body
+            table.find('tbody').empty();
+
+            // Add attack types to the table
+            for (let attackType of attackTypes) {
+                let row = $('<tr></tr>');
+
+                // Add attack type to the first column
+                let attackTypeCell = $('<td></td>').text(attackType);
+                row.append(attackTypeCell);
+
+                // Create a selector in the Unit template column
+                let templateCell = $('<td></td>');
+                let id = `${actualPlanId}-templateSelector-${attackType}`;
+
+                let select = $('<select></select>').attr('id', id);
+                for (let template of troopTemplates) {
+                    let option = $('<option></option>').val(template.name).text(template.name);
+                    select.append(option);
+                }
+
+                // Select the saved option
+                let savedOption = localStorageSettings.templateSelections[id];
+                if (savedOption) {
+                    select.val(savedOption);
+                }
+
+                select.on('change', function () {
+                    // This function will be called whenever the selected option of the select element changes
+                    // 'this' refers to the select element
+                    let selectedOption = $(this).val();
+
+                    // Save the selected option in local storage
+                    let localStorageSettings = getLocalStorage();
+                    localStorageSettings.templateSelections[id] = selectedOption;
+                    saveLocalStorage(localStorageSettings);
+                    fillTemplateTable();
+
+                    console.log('Selected option:', selectedOption);
+                });
+
+                templateCell.append(select);
+                // Create a preview of the troops in the template in the third column
+                let previewCell = $('<td class="templateContainer"></td>');
+                let selectedTemplate = troopTemplates.find(template => template.name === localStorageSettings.templateSelections[id]);
+                if (selectedTemplate) {
+                    for (let unit in selectedTemplate.units) {
+                        let unitAmount = selectedTemplate.units[unit];
+                        let unitPreview = $(`
+                            <span class="unitAmount">${unitAmount}</span>
+                    `);
+                        previewCell.append(unitPreview);
+                    }
+                }
+
+                row.append(templateCell);
+                row.append(previewCell);
+
+                table.find('tbody').append(row);
+            }
+        }
+
+        function buildUnitsPicker(unitsToIgnore, id_prefix, type = 'checkbox') {
+            let unitsTable = ``;
+
+            let thUnits = ``;
+            let tableRow = ``;
+
+            game_data.units.forEach((unit) => {
+                if (!unitsToIgnore.includes(unit)) {
+
+                    thUnits += `
+                        <th class="ra-text-center">
+                            <label for="${id_prefix}_unit_${unit}">
+                                <img src="/graphic/unit/unit_${unit}.png">
+                            </label>
+                        </th>
+                    `;
+
+                    tableRow += `
+                        <td class="ra-text-center">
+                            <input name="ra_chosen_units" type="${type}" id="${id_prefix}_unit_${unit}" class="ra-unit-selector" value="0" />
+                        </td>
+                    `;
+                }
+            });
+
+            unitsTable = `
+                <table class="ra-table ra-table-v2" width="100%" id="${id_prefix}_raUnitSelector">
+                    <thead>
+                        <tr>
+                            ${thUnits}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            ${tableRow}
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+
+            return unitsTable;
+        }
+
         function generatePlanSelector() {
             const html = `
                     <legend>${twSDK.tt('Select attack plan:')}</legend>
@@ -617,6 +875,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return html;
         }
         function populatePlanSelector() {
+            let localStorageSettings = getLocalStorage();
+            let planNames = localStorageSettings.planNames;
             let planSelector = document.getElementById('planSelector');
             $("#planSelector option").each(function () {
                 if ($(this).val() !== '---') {
@@ -626,11 +886,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             for (let i = 0; i < planIds.length; i++) {
                 let option = document.createElement('option');
                 option.value = planIds[i];
-                option.text = planIds[i];
+                // If a planName exists for this planId, use it as the option text
+                option.text = planNames && planNames[planIds[i]] ? planNames[planIds[i]] : planIds[i];
                 planSelector.appendChild(option);
             }
-            let localStorageSettings = getLocalStorage();
-            console.log(localStorageSettings.planSelector);
+
             for (let planid of planIds) {
                 if (planid === localStorageSettings.planSelector) {
                     $(`#${planid}`).show();
@@ -650,7 +910,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 .then(key => {
                     console.log("Plan added successfully");
                     console.log("Key of the added plan:", key);
-                    localStorageSettings = getLocalStorage();
+                    let localStorageSettings = getLocalStorage();
                     localStorageSettings.planSelector = `plan-id-${key}`;
                     saveLocalStorage(localStorageSettings);
                     renderUI();
@@ -936,61 +1196,51 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
 
         function getCurrentURL() {
-            return window.location.protocol + "//" + window.location.host + window.location.pathname;;
+            return window.location.protocol + "//" + window.location.host + window.location.pathname;
         }
 
         async function getTroopTemplates() {
-            let baseUrl = getCurrentURL() + "?screen=place&mode=templates";
+            let baseUrl = getCurrentURL() + `?village=${game_data.village.id}&screen=place&mode=templates`;
 
             let response = await fetch(baseUrl);
             let text = await response.text();
 
-            let parser = new DOMParser();
-            let doc = parser.parseFromString(text, 'text/html');
-            let divContent = doc.querySelector('#troop_template_list');
+            let templateText = text.split('TroopTemplates.current = ')[1].split(';\n\tTroopTemplates.deleteLink =')[0]
+            let troopTemplatesRaw = JSON.parse(templateText) ?? {};
 
-            let hrefs = Array.from(divContent.querySelectorAll('li a'))
-                .slice(1) // Skip the first li
-                .map(a => a.getAttribute('href')); // Get the href of each a
-
-            let troopTemplates = [];
-            let i = 0;
-            for (let href of hrefs) {
-                i++;
-                await new Promise(resolve => setTimeout(resolve, 200)); // Wait for 200 ms
-                UI.InfoMessage(twSDK.tt('Loading') + ` ${i}/${hrefs.length}`);
-                let troopTemplate = {};
-
-                let response = await fetch(baseUrl + href);
-                let text = await response.text();
-
-                let doc = parser.parseFromString(text, 'text/html');
-                let firstTrContent = doc.querySelector('#troop_template_container form table tbody tr');
-                let tds = firstTrContent.querySelectorAll('td');
-
-                for (let td of tds) {
-                    let trs = td.querySelectorAll('table tbody tr');
-                    for (let tr of trs) {
-                        let unitName = tr.querySelector('a').getAttribute('data-unit');
-                        let checkbox = tr.querySelector('input[type="checkbox"]');
-                        let unitAmount = checkbox.checked ? 'all' : tr.querySelector('input[type="text"]').value;
-                        troopTemplate[unitName] = unitAmount;
-                    }
-                }
-
-                let secondTrContent = doc.querySelector('#troop_template_container form table tbody tr:nth-child(2)');
-                troopTemplate.name = secondTrContent.querySelector('#template_name').value;
-
-                troopTemplates.push(troopTemplate);
+            if (DEBUG) console.debug(`${scriptInfo}: Troop templates: `, troopTemplatesRaw);
+            if (troopTemplatesRaw.length === 0) {
+                console.warn(`${scriptInfo}: No troop templates found!`);
+                return;
             }
-
-            return troopTemplates;
+            let troopTemplates = [];
+            const units = game_data.units;
+            if (DEBUG) console.debug(`${scriptInfo}: Units: `, units);
+            for (let templateKey in troopTemplatesRaw) {
+                if (DEBUG) console.debug(`${scriptInfo}: Troop template ${templateKey}: `, troopTemplatesRaw[templateKey]);
+                let template = troopTemplatesRaw[templateKey];
+                let templateUnits = {};
+                for (let unit of units) {
+                    templateUnits[unit] = template[unit] ?? 0;
+                }
+                for (let unitAll of template.use_all) {
+                    templateUnits[unitAll] = 'all';
+                }
+                troopTemplates.push({ name: template.name, units: templateUnits });
+                if (DEBUG) console.debug(`${scriptInfo}: Troop template ${template.name}: `, templateUnits);
+            }
+            if (DEBUG) console.debug(`${scriptInfo}: Troop templates: `, troopTemplates);
+            let localStorageSettings = getLocalStorage();
+            localStorageSettings.troopTemplates = troopTemplates;
+            saveLocalStorage(localStorageSettings);
         }
 
 
         function resetInput() {
             let localStorageSettings = getLocalStorage();
             localStorageSettings.planSelector = '---';
+            localStorageSettings.sendByTime = 0;
+            localStorageSettings.sendByNumber = 0;
             saveLocalStorage(localStorageSettings);
             renderUI();
             addEventHandlers();
@@ -1011,6 +1261,21 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                             $(`#${planId}`).hide();
                         }
                     }
+                    if (inputValue === '---') {
+                        $('#manageCommandsDiv').hide();
+                    } else {
+                        $('#manageCommandsDiv').show();
+                    }
+                    break;
+                case "sendByTime":
+                    inputValue = parseInt($(this).val());
+                    if (inputValue < 0) inputValue = 0;
+                    $(this).val(inputValue);
+                    break;
+                case "sendByNumber":
+                    inputValue = parseInt($(this).val());
+                    if (inputValue < 0) inputValue = 0;
+                    $(this).val(inputValue);
                     break;
                 default:
                     console.error(`${scriptInfo}: Unknown id: ${inputId}`)
@@ -1019,6 +1284,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             const settingsObject = getLocalStorage();
             settingsObject[inputId] = inputValue;
             saveLocalStorage(settingsObject);
+            if (inputId === 'planSelector') {
+                fillTemplateTable();
+            }
         }
 
         function getLocalStorage() {
@@ -1026,6 +1294,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             // Check if all expected settings are in localStorageSettings
             const expectedSettings = [
                 'planSelector',
+                'sendByTime',
+                'sendByNumber',
+                'troopTemplates',
+                'templateSelections',
+                'planNames',
             ];
 
             let missingSettings = [];
@@ -1040,6 +1313,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             } else {
                 const defaultSettings = {
                     planSelector: '---',
+                    sendByTime: 0,
+                    sendByNumber: 0,
+                    troopTemplates: [],
+                    templateSelections: {},
+                    planNames: {},
                 };
 
                 saveLocalStorage(defaultSettings);

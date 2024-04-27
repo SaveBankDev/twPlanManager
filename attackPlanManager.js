@@ -19,11 +19,13 @@ var sbAllIdsAPM = [
     'planSelector',
     'sendByTime',
     'sendByNumber',
+    'useTemplates',
 ];
 var planIds = [];
 var sbButtonIDsAPM = [];
 var sbPlans = {};
 
+var LAST_REQUEST = 0;
 
 
 var scriptConfig = {
@@ -65,6 +67,8 @@ var scriptConfig = {
             'Rename Plan': 'Rename Plan',
             'Unit Preview': 'Unit Preview',
             'Template Preview': 'Template Preview',
+            'Use Troop Templates': 'Use Troop Templates',
+            'Too many requests! Please wait a moment before trying again.': 'Too many requests! Please wait a moment before trying again.',
         },
         de_DE: {
             'Redirecting...': 'Weiterleiten...',
@@ -95,6 +99,8 @@ var scriptConfig = {
             'Rename Plan': 'Plan umbenennen',
             'Unit Preview': 'Truppenvorschau',
             'Template Preview': 'Vorlagenvorschau',
+            'Use Troop Templates': 'Truppenvorlagen verwenden',
+            'Too many requests! Please wait a moment before trying again.': 'Zu viele Anfragen! Bitte warten Sie einen Moment, bevor Sie es erneut versuchen.',
         }
     }
     ,
@@ -182,7 +188,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     </fieldset>
                 </div> 
                 <div>
-                    <fieldset class="ra-mb10 sb-grid sb-grid-6">
+                    <fieldset class="ra-mb10 sb-grid sb-grid-7">
                         <div>
                             ${planSelectorContent}
                         </div>
@@ -197,6 +203,10 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         </div>
                         <div>
                             <button id="buttonLoadTemplates" class="btn btn-bottom">${twSDK.tt('Load Troop Templates')}</button>
+                        </div>
+                        <div>
+                            <label for="useTemplates">${twSDK.tt('Use Troop Templates')}</label>
+                            <input type="checkbox" id="useTemplates" name="useTemplates">
                         </div>
                         <div class="ra-tac">
                             <button id="resetInput" class="btn btn-bottom" >${twSDK.tt('Reset Input')}</button>
@@ -425,7 +435,76 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 saveLocalStorage(localStorageSettings);
             });
             // send by number button id buttonByNumber
+            $('#buttonByNumber').click(function () {
+                let localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let number = localStorageSettings.sendByNumber;
+                let lastDashIndex = planId.lastIndexOf('-');
+                let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
+                let plan = sbPlans[actualPlanId];
+                plan.sort((a, b) => {
+                    let distanceA = getDistanceFromIDs(parseInt(a.originVillageId), parseInt(a.targetVillageId));
+                    let unitSpeedA = parseInt(worldUnitInfo.config[a.slowestUnit].speed);
+                    let sendTimestampA = parseInt(parseInt(a.arrivalTimestamp) - (twSDK.getTravelTimeInSecond(distanceA, unitSpeedA) * 1000));
+                    let remainingTimestampA = parseInt(sendTimestampA - Date.now());
+
+                    let distanceB = getDistanceFromIDs(parseInt(b.originVillageId), parseInt(b.targetVillageId));
+                    let unitSpeedB = parseInt(worldUnitInfo.config[b.slowestUnit].speed);
+                    let sendTimestampB = parseInt(parseInt(b.arrivalTimestamp) - (twSDK.getTravelTimeInSecond(distanceB, unitSpeedB) * 1000));
+                    let remainingTimestampB = parseInt(sendTimestampB - Date.now());
+
+                    return remainingTimestampA - remainingTimestampB;
+                });
+                let commandsToSend = [];
+                for (let command of plan) {
+                    commandsToSend.push(generateLink(parseInt(command.originVillageId), parseInt(command.targetVillageId), command.units, command.trAttackId, command.attackType));
+                    command.sent = true;
+                    if (commandsToSend.length >= number) {
+                        break;
+                    }
+                }
+                let delay = 200;
+                for (let link of commandsToSend) {
+                    setTimeout(() => {
+                        window.open(link, '_blank');
+                    }, delay);
+                    delay += 200;
+                }
+                saveLocalStorage(localStorageSettings);
+            });
             // send by time button id buttonByTime
+            $('#buttonByTime').click(function () {
+                let localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let time = parseInt(localStorageSettings.sendByTime) * 60000;
+                let lastDashIndex = planId.lastIndexOf('-');
+                let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
+                let plan = sbPlans[actualPlanId];
+
+
+                let timeNow = Date.now();
+                let commandsToSend = [];
+
+                for (let command of plan) {
+                    let sendTimestamp = parseInt(command.sendTimestamp);
+                    let remainingTimestamp = parseInt(sendTimestamp - timeNow);
+                    if (remainingTimestamp > time) {
+                        continue;
+                    }
+                    commandsToSend.push(generateLink(parseInt(command.originVillageId), parseInt(command.targetVillageId), command.units, command.trAttackId, command.attackType));
+                    command.sent = true;
+                }
+
+                let delay = 0;
+                for (let link of commandsToSend) {
+                    setTimeout(() => {
+                        window.open(link, '_blank');
+                    }, delay);
+                    delay += 200;
+                }
+
+                saveLocalStorage(localStorageSettings);
+            });
             $('#buttonLoadTemplates').click(async function () {
                 await getTroopTemplates();
             });
@@ -459,6 +538,10 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let sendByTime = localStorageSettings.sendByTime;
                 let sendByNumber = localStorageSettings.sendByNumber;
                 let planSelector = localStorageSettings.planSelector;
+                let useTemplates = parseBool(localStorageSettings.useTemplates);
+                if (useTemplates) {
+                    $('#useTemplates').prop('checked', true);
+                }
                 if (sendByTime) {
                     $('#sendByTime').val(sendByTime);
                 }
@@ -481,6 +564,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         function generateCSS() {
 
             let css = `
+                    .sb-grid-7 {
+                        grid-template-columns: repeat(7, 1fr);
+                    }
                     .sb-grid-6 {
                         grid-template-columns: repeat(6, 1fr);
                     }
@@ -736,7 +822,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return tbodyContent;
         }
 
-        function generateLink(villageId1, villageId2, idInfo, attackType) {
+        function generateLink(villageId1, villageId2, unitInfo, idInfo, attackType) {
             let completeLink = getCurrentURL();
             completeLink += twSDK.sitterId.length > 0
                 ? `?${twSDK.sitterId}&village=${villageId1}&screen=place&target=${villageId2}`
@@ -746,27 +832,36 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             let [planId, _, attackId] = idInfo.split('-');
             let templateId = planId + "-templateSelector-" + attackType;
             const localStorageSettings = getLocalStorage();
+            let useTemplates = parseBool(localStorageSettings.useTemplates);
             const templateName = localStorageSettings.templateSelections[templateId];
 
             let template = localStorageSettings.troopTemplates.find(templateObj => templateObj.name === templateName)?.units;
 
             let unitsToSend = {};
-            for (let unit of game_data.units) {
-                let templateUnit = parseInt(template[unit]);
+            if (useTemplates) {
+                for (let unit of game_data.units) {
+                    let templateUnit = parseInt(template[unit]);
 
-                if (template[unit] == "all") {
-                    unitsToSend[unit] = villageUnits[unit];
-                } else if (templateUnit >= 0) {
-                    unitsToSend[unit] = Math.min(templateUnit, villageUnits[unit]);
-                } else if (templateUnit < 0) {
-                    let unitAmount = villageUnits[unit] - Math.abs(templateUnit);
-                    if (unitAmount > 0) {
-                        unitsToSend[unit] = unitAmount;
+                    if (template[unit] == "all") {
+                        unitsToSend[unit] = villageUnits[unit];
+                    } else if (templateUnit >= 0) {
+                        unitsToSend[unit] = Math.min(templateUnit, villageUnits[unit]);
+                    } else if (templateUnit < 0) {
+                        let unitAmount = villageUnits[unit] - Math.abs(templateUnit);
+                        if (unitAmount > 0) {
+                            unitsToSend[unit] = unitAmount;
+                        }
+                    } else {
+                        console.error(`${scriptInfo} Error in template: ${template}`);
                     }
-                } else {
-                    console.error(`${scriptInfo} Error in template: ${template}`);
+                }
+            } else {
+                for (let unit of game_data.units) {
+                    let unitAmount = unitInfo[unit];
+                    unitsToSend[unit] = unitAmount;
                 }
             }
+
 
             for (let [unit, amount] of Object.entries(unitsToSend)) {
                 completeLink += `&${unit}=${amount}`;
@@ -815,8 +910,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         let targetVillageId = parseInt(sbPlans[planId][key].targetVillageId);
                         let trAttackId = sbPlans[planId][key].trAttackId;
                         let attackType = sbPlans[planId][key].attackType;
+                        let units = sbPlans[planId][key].units;
                         if (DEBUG) console.debug("Link Info: ", originVillageId, targetVillageId, trAttackId, attackType);
-                        let sendLink = generateLink(originVillageId, targetVillageId, trAttackId, attackType);
+                        let sendLink = generateLink(originVillageId, targetVillageId, units, trAttackId, attackType);
                         window.open(sendLink, '_blank');
                     }
                     // Append the button to the correct element
@@ -854,7 +950,16 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 }
             }
         }
-
+        function parseBool(input) {
+            if (typeof input === 'string') {
+                return input.toLowerCase() === 'true';
+            } else if (typeof input === 'boolean') {
+                return input;
+            } else {
+                console.error(`${scriptInfo}: Invalid input: needs to be a string or boolean.`);
+                return false;
+            }
+        }
         // TODO attack type to img
         function convertTimestampToDateString(timestamp) {
             let date = new Date(timestamp);
@@ -1379,6 +1484,14 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
 
         async function getTroopTemplates() {
+            if (Date.now() - LAST_REQUEST < 200) {
+                if (DEBUG) {
+                    console.debug(`${scriptInfo} Too many requests!`);
+                }
+                UI.ErrorMessage(twSDK.tt('Too many requests! Please wait a moment before trying again.'));
+                return;
+            }
+            LAST_REQUEST = Date.now();
             let baseUrl = getCurrentURL() + `?village=${game_data.village.id}&screen=place&mode=templates`;
 
             let response = await fetch(baseUrl);
@@ -1420,6 +1533,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             localStorageSettings.planSelector = '---';
             localStorageSettings.sendByTime = 0;
             localStorageSettings.sendByNumber = 0;
+            localStorageSettings.useTemplates = true;
             saveLocalStorage(localStorageSettings);
             renderUI();
             addEventHandlers();
@@ -1456,6 +1570,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     if (inputValue < 0) inputValue = 0;
                     $(this).val(inputValue);
                     break;
+                case "useTemplates":
+                    inputValue = $(this).is(':checked');
+                    break;
                 default:
                     console.error(`${scriptInfo}: Unknown id: ${inputId}`)
             }
@@ -1478,6 +1595,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 'troopTemplates',
                 'templateSelections',
                 'planNames',
+                'useTemplates',
             ];
 
             let missingSettings = [];
@@ -1497,6 +1615,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     troopTemplates: [],
                     templateSelections: {},
                     planNames: {},
+                    useTemplates: true,
                 };
 
                 saveLocalStorage(defaultSettings);

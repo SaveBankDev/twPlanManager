@@ -680,7 +680,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     #templateTable {
                         width: 100%;
                     }
-                    #templateTable td {
+                    #templateTable td{
                         height: 100%;
                     }
 
@@ -1414,12 +1414,20 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
         function getLocalStorage() {
             const localStorageSettings = JSON.parse(localStorage.getItem('sbAttackPlanManager'));
-            const expectedSettings = ['planSelector', 'sendByTime', 'sendByNumber', 'troopTemplates', 'templateSelections', 'planNames', 'useTemplates'];
+            const expectedSettings = [
+                'planSelector',
+                'sendByTime',
+                'sendByNumber',
+                'troopTemplates',
+                'templateSelections',
+                'planNames',
+                'useTemplates'
+            ];
 
             let missingSettings = [];
             if (localStorageSettings) {
                 missingSettings = expectedSettings.filter(setting => !(setting in localStorageSettings));
-                if (DEBUG) console.debug(`${scriptInfo}: Missing settings in localStorage: `, missingSettings);
+                if (DEBUG && missingSettings.length > 0) console.debug(`${scriptInfo}: Missing settings in localStorage: `, missingSettings);
             }
 
             if (localStorageSettings && missingSettings.length === 0) {

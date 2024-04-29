@@ -168,6 +168,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 renderUI();
                 addEventHandlers();
                 initializeInputFields();
+                count();
                 const endTime = performance.now();
                 if (DEBUG) console.debug(`${scriptInfo}: Time to initialize: ${(endTime - startTime).toFixed(2)} milliseconds`);
             } catch (error) {
@@ -337,6 +338,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                 planNames[planId] = newPlanName;
                 localStorageSettings.planNames = planNames;
+                saveLocalStorage(localStorageSettings);
                 populatePlanSelector();
             });
             $('#buttonDeleteAll').click(function () {
@@ -795,9 +797,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             <tr id="${trAttackId}">
                 <td class="ra-tac"><input type="checkbox" id="${checkboxId}"></td>
                 <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.originVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.originVillageId))[2]}|${villageMap.get(parseInt(row.originVillageId))[3]}</span></a></td>
-                <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.originVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.originVillageId))[4]))[1]}</span></td>
+                <td class="ra-tac">${villageMap.get(parseInt(row.originVillageId))[4] !== 0 ? `<a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.originVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.originVillageId))[4]))[1]}</span></a>` : '<span class="quickedit-label">N/A</span>'}</td>
                 <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.targetVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.targetVillageId))[2]}|${villageMap.get(parseInt(row.targetVillageId))[3]}</span></td>
-                <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></td></td>
+                <td class="ra-tac">${villageMap.get(parseInt(row.targetVillageId))[4] !== 0 ? `<a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></a>` : '<span class="quickedit-label">N/A</span>'}</td>
                 <td class="ra-tac"><img src="https://dsde.innogamescdn.com/asset/9f9563bf/graphic/unit/unit_${row.slowestUnit}.png"></td>
                 <td class="ra-tac">${row.attackType}</td>
                 <td class="ra-tac">${sendTime}</td>
@@ -1119,17 +1121,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         function convertWBPlanToArray(plan) {
             let planArray = plan.split("\n").filter(str => str.trim() !== "");
             let planObjects = [];
-            /* 
-            * 0: origin village id
-            * 1: target village id
-            * 2: slowest unit
-            * 3: arrival timestamp
-            * 4: attack type 
-            * 5: draw in (always false)
-            * 6: sent (always false)
-            * 7: units
-            * 8: times to send (ignore)
-            */
+
             for (let i = 0; i < planArray.length; i++) {
                 let planParts = planArray[i].split("&");
                 let units = planParts[7].split("/").reduce((obj, str) => {
@@ -1151,9 +1143,10 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 };
 
                 planObjects.push(planObject);
+                if (DEBUG) console.debug(`${scriptInfo}: Plan object ${i} created: `, planObject);
             }
 
-
+            if (DEBUG) console.debug(`${scriptInfo}: Plan objects created: `, planObjects);
             return planObjects;
         }
 
@@ -1187,6 +1180,36 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return exportWB;
         }
 
+        function count() {
+            const apiUrl = 'https://api.counterapi.dev/v1';
+            const playerId = game_data.player.id;
+            const encodedPlayerId = btoa(game_data.player.id);
+            const apiKey = 'sbPlanManager'; // api key
+            const namespace = 'savebankscriptstw'; // namespace
+            try {
+                $.getJSON(`${apiUrl}/${namespace}/${apiKey}/up`, response => {
+                    if (DEBUG) console.debug(`Total script runs: ${response.count}`);
+                }).fail(() => { if (DEBUG) console.debug("Failed to fetch total script runs"); });
+            } catch (error) { if (DEBUG) console.debug("Error fetching total script runs: ", error); }
+
+            try {
+                $.getJSON(`${apiUrl}/${namespace}/${apiKey}_id${encodedPlayerId}/up`, response => {
+                    if (response.count === 1) {
+                        $.getJSON(`${apiUrl}/${namespace}/${apiKey}_users/up`).fail(() => {
+                            if (DEBUG) console.debug("Failed to increment user count");
+                        });
+                    }
+                    if (DEBUG) console.debug(`Player ${playerId} script runs: ${response.count}`);
+                }).fail(() => { if (DEBUG) console.debug("Failed to fetch player script runs"); });
+            } catch (error) { if (DEBUG) console.debug("Error fetching player script runs: ", error); }
+
+            try {
+                $.getJSON(`${apiUrl}/${namespace}/${apiKey}_users`, response => {
+                    if (DEBUG) console.debug(`Total users: ${response.count}`);
+                }).fail(() => { if (DEBUG) console.debug("Failed to fetch total users"); });
+            } catch (error) { if (DEBUG) console.debug("Error fetching total users: ", error); }
+        }
+
         function openDatabase() {
             let openRequest = indexedDB.open("sbAttackPlanManager");
 
@@ -1196,7 +1219,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             };
 
             openRequest.onerror = function (event) {
-                if (DEBUG) console.debug(`${scriptInfo} Error opening database`, event);
+                console.error(`${scriptInfo} Error opening database`, event);
             };
 
             openRequest.onupgradeneeded = function (event) {
@@ -1226,13 +1249,13 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     };
 
                     addRequest.onerror = function (event) {
-                        if (DEBUG) console.debug(`${scriptInfo} Error adding plan:`, event);
+                        console.error(`${scriptInfo} Error adding plan:`, event);
                         reject(event);
                     };
                 };
 
                 openRequest.onerror = function (event) {
-                    if (DEBUG) console.debug(`${scriptInfo} Error opening database:`, event);
+                    console.error(`${scriptInfo} Error opening database:`, event);
                     reject(event);
                 };
             });
@@ -1252,12 +1275,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 };
 
                 putRequest.onerror = function (event) {
-                    if (DEBUG) console.debug(`${scriptInfo} Error modifying plan with ID: ${planId}`, event);
+                    console.error(`${scriptInfo} Error modifying plan with ID: ${planId}`, event);
                 };
             };
 
             openRequest.onerror = function (event) {
-                if (DEBUG) console.debug(`${scriptInfo} Error opening database:`, event);
+                console.error(`${scriptInfo} Error opening database:`, event);
             };
         }
 
@@ -1286,13 +1309,13 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     };
 
                     cursorRequest.onerror = function (event) {
-                        if (DEBUG) console.debug(`${scriptInfo} Error retrieving plans:`, event);
+                        console.error(`${scriptInfo} Error retrieving plans:`, event);
                         reject(event);
                     };
                 };
 
                 openRequest.onerror = function (event) {
-                    if (DEBUG) console.debug(`${scriptInfo} Error opening database:`, event);
+                    console.error(`${scriptInfo} Error opening database:`, event);
                     reject(event);
                 };
             });
@@ -1312,12 +1335,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 };
 
                 deleteRequest.onerror = function (event) {
-                    if (DEBUG) console.debug(`${scriptInfo} Error deleting plan with ID: ${planId}`, event);
+                    console.error(`${scriptInfo} Error deleting plan with ID: ${planId}`, event);
                 };
             };
 
             openRequest.onerror = function (event) {
-                if (DEBUG) console.debug(`${scriptInfo} Error opening database:`, event);
+                onsole.error(`${scriptInfo} Error opening database:`, event);
             };
         }
 

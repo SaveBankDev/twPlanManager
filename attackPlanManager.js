@@ -781,6 +781,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let getTravelTimeInMS = twSDK.getTravelTimeInSecond(distance, unitSpeed) * 1000;
                 let sendTimestamp = parseInt(parseInt(row.arrivalTimestamp) - getTravelTimeInMS);
                 let remainingTimestamp = parseInt(sendTimestamp - Date.now());
+                let attackTypeImageLink = attackTypeToImageLink(parseInt(row.attackType));
+
 
                 let sendTime = convertTimestampToDateString(sendTimestamp);
                 let arrivalTime = convertTimestampToDateString(parseInt(row.arrivalTimestamp));
@@ -801,7 +803,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.targetVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.targetVillageId))[2]}|${villageMap.get(parseInt(row.targetVillageId))[3]}</span></td>
                 <td class="ra-tac">${villageMap.get(parseInt(row.targetVillageId))[4] !== 0 ? `<a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></a>` : '<span class="quickedit-label">N/A</span>'}</td>
                 <td class="ra-tac"><img src="https://dsde.innogamescdn.com/asset/9f9563bf/graphic/unit/unit_${row.slowestUnit}.png"></td>
-                <td class="ra-tac">${row.attackType}</td>
+                <td class="ra-tac"><img src="${attackTypeImageLink}"></td>
                 <td class="ra-tac">${sendTime}</td>
                 <td class="ra-tac">${arrivalTime}</td>
                 <td id="${timeStampId}" class="ra-tac"><span class="timer" data-endtime>${twSDK.secondsToHms(parseInt(remainingTimestamp / 1000))}</span></td>
@@ -927,7 +929,60 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 return false;
             }
         }
-        // TODO attack type to img
+        function attackTypeToImageLink(attackType) {
+            const baseURL = 'https://ds-ultimate.de/images/ds_images/';
+            const imageMap = {
+                0: 'unit/spear.png',
+                1: 'unit/sword.png',
+                2: 'unit/axe.png',
+                3: 'unit/archer.png',
+                4: 'unit/spy.png',
+                5: 'unit/light.png',
+                6: 'unit/marcher.png',
+                7: 'unit/heavy.png',
+                8: 'unit/ram.png',
+                9: 'unit/catapult.png',
+                10: 'unit/knight.png',
+                11: 'unit/snob.png',
+                12: 'wb/def_cav.png',
+                13: 'wb/def_archer.png',
+                14: 'wb/fake.png',
+                15: 'wb/ally.png',
+                16: 'wb/move_out.png',
+                17: 'wb/move_in.png',
+                18: 'wb/bullet_ball_blue.png',
+                19: 'wb/bullet_ball_green.png',
+                20: 'wb/bullet_ball_yellow.png',
+                21: 'wb/bullet_ball_red.png',
+                22: 'wb/bullet_ball_grey.png',
+                23: 'wb/warning.png',
+                24: 'wb/die.png',
+                25: 'wb/add.png',
+                26: 'wb/remove.png',
+                27: 'wb/checkbox.png',
+                28: 'wb/eye.png',
+                29: 'wb/eye_forbidden.png',
+                30: 'buildings/small/main.png',
+                31: 'buildings/small/barracks.png',
+                32: 'buildings/small/stable.png',
+                33: 'buildings/small/garage.png',
+                34: 'buildings/small/church.png',
+                35: 'buildings/small/snob.png',
+                36: 'buildings/small/smith.png',
+                37: 'buildings/small/place.png',
+                38: 'buildings/small/statue.png',
+                39: 'buildings/small/market.png',
+                40: 'buildings/small/wood.png',
+                41: 'buildings/small/stone.png',
+                42: 'buildings/small/iron.png',
+                43: 'buildings/small/farm.png',
+                44: 'buildings/small/storage.png',
+                45: 'buildings/small/wall.png',
+                46: 'wb/def_fake.png',
+            };
+
+            return baseURL + imageMap[attackType];
+        }
 
         function convertTimestampToDateString(timestamp) {
             let date = new Date(timestamp);
@@ -1017,7 +1072,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
             for (let attackType of attackTypes) {
                 let row = $('<tr></tr>');
-                let attackTypeCell = $('<td></td>').text(attackType);
+                let attackTypeImageLink = attackTypeToImageLink(attackType);
+                let attackTypeCell = $('<td></td>').html(`<img src="${attackTypeImageLink}">`);
                 row.append(attackTypeCell);
                 let templateCell = $('<td></td>');
                 let id = `${actualPlanId}-templateSelector-${attackType}`;

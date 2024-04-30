@@ -354,25 +354,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 saveLocalStorage(localStorageSettings);
                 populatePlanSelector();
             });
-            /*
-            for (let i = 0; i < planIds.length; i++) {
-                let option = document.createElement('option');
-                option.value = planIds[i];
-                option.text = planNames && planNames[planIds[i]] ? planNames[planIds[i]] : planIds[i];
-                planSelector.appendChild(option);
-                if (DEBUG) console.debug(`${scriptInfo} Added plan with ID ${planIds[i]} to the plan selector`);
-            }
-            From twSDK:
-                renderFixedWidget: function (
-                    body,
-                    id,
-                    mainClass,
-                    customStyle,
-                    width,
-                    customName = this.scriptData.name
-                )
-            */
-
             $('#combinePlan').click(function () {
                 const style = generateCSS();
                 const localStorageSettings = getLocalStorage();

@@ -1554,6 +1554,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             localStorageSettings.useTemplates = true;
             saveLocalStorage(localStorageSettings);
             if (DEBUG) console.debug(`${scriptInfo} Input reset successfully, new settings:`, localStorageSettings);
+            if ($('#sbPlanSelectorPopup').length > 0) {
+                $('#sbPlanSelectorPopup').remove();
+            }
             renderUI();
             addEventHandlers();
             initializeInputFields();

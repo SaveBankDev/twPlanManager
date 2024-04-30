@@ -74,6 +74,7 @@ var scriptConfig = {
             'Barbarian': 'Barbarian',
             'Exported and copied to clipboard': 'Exported and copied to clipboard',
             'Combine Plan': 'Combine Plan',
+            'Please select more plans to combine': 'Please select more plans to combine',
         },
         de_DE: {
             'Redirecting...': 'Weiterleiten...',
@@ -112,6 +113,7 @@ var scriptConfig = {
             'Barbarian': 'Barbaren',
             'Exported and copied to clipboard': 'Exportiert und in die Zwischenablage kopiert',
             'Combine Plan': 'Plan kombinieren',
+            'Please select more plans to combine': 'Bitte wählen Sie mehr Pläne aus, um sie zu kombinieren',
         }
     }
     ,
@@ -396,6 +398,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     let selectedPlanIds = $('.plan-checkbox:checked').map(function () {
                         return this.id;
                     }).get();
+
+                    if (selectedPlanIds.length < 1) {
+                        UI.ErrorMessage('Please select more plans to combine');
+                        return;
+                    }
 
                     if (DEBUG) console.debug(`${scriptInfo} Selected plan IDs: ${selectedPlanIds.join(', ')}`);
 

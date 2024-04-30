@@ -417,7 +417,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     });
 
                     modifyPlan(actualTargetPlanId, sbPlans[actualTargetPlanId]);
-                    $('#sbPlanSelectorPopup').remove();
+                    if ($('#sbPlanSelectorPopup').length > 0) {
+                        $('#sbPlanSelectorPopup').remove();
+                    }
                     renderUI();
                     addEventHandlers();
                     initializeInputFields();
@@ -1265,6 +1267,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     let localStorageSettings = getLocalStorage();
                     localStorageSettings.planSelector = `plan-id-${key}`;
                     saveLocalStorage(localStorageSettings);
+                    if ($('#sbPlanSelectorPopup').length > 0) {
+                        $('#sbPlanSelectorPopup').remove();
+                    }
                     renderUI();
                     addEventHandlers();
                     initializeInputFields();

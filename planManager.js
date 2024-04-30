@@ -1,5 +1,5 @@
 /*
-* Script Name: Attack Plan Manager
+* Script Name: Plan Manager
 * Version: v1.0
 * Last Updated: 2024-04-28
 * Author: SaveBank
@@ -30,7 +30,7 @@ var LAST_REQUEST = 0;
 var scriptConfig = {
     scriptData: {
         prefix: 'sbAPM',
-        name: 'Attack Plan Manager',
+        name: 'Plan Manager',
         version: 'v1.0',
         author: 'SaveBank',
         authorUrl: 'https://forum.tribalwars.net/index.php?members/savebank.131111/',
@@ -40,17 +40,17 @@ var scriptConfig = {
         en_DK: {
             'Redirecting...': 'Redirecting...',
             Help: 'Help',
-            'Attack Plan Manager': 'Attack Plan Manager',
+            'Plan Manager': 'Plan Manager',
             'There was an error!': 'There was an error!',
-            'Import attack plan:': 'Import attack plan:',
+            'Import plan:': 'Import plan:',
             'Import': 'Import',
-            'Export attack plan:': 'Export attack plan:',
-            'Select attack plan:': 'Select attack plan:',
+            'Export plan:': 'Export plan:',
+            'Select plan:': 'Select plan:',
             'Export': 'Export',
             'Reset Input': 'Reset Input',
             'Save Plan': 'Save Plan',
             'Delete Plan': 'Delete Plan',
-            'Attack type': 'Attack type',
+            'Type': 'Type',
             'Unit Template': 'Unit Template',
             'Loading': 'Loading',
             'Select unit template:': 'Select unit template:',
@@ -71,21 +71,24 @@ var scriptConfig = {
             'Delete Commands': 'Delete Commands',
             'Plan Actions': 'Plan Actions',
             'Template Settings': 'Template Settings',
+            'Barbarian': 'Barbarian',
+            'Exported and copied to clipboard': 'Exported and copied to clipboard',
+            'Combine Plan': 'Combine Plan',
         },
         de_DE: {
             'Redirecting...': 'Weiterleiten...',
             Help: 'Hilfe',
-            'Attack Plan Manager': 'Angriffsplan Manager',
+            'Plan Manager': 'Plan Manager',
             'There was an error!': 'Es gab einen Fehler!',
-            'Import attack plan:': 'Angriffsplan importieren:',
+            'Import plan:': 'Plan importieren:',
             'Import': 'Importieren',
-            'Export attack plan:': 'Angriffsplan exportieren:',
-            'Select attack plan:': 'Angriffsplan auswählen:',
+            'Export plan:': 'Plan exportieren:',
+            'Select plan:': 'Plan auswählen:',
             'Export': 'Exportieren',
             'Reset Input': 'Eingaben zurücksetzen',
             'Delete Plan': 'Plan löschen',
             'Save Plan': 'Plan speichern',
-            'Attack type': 'Angriffstyp',
+            'Type': 'Typ',
             'Unit Template': 'Truppenvorlage',
             'Loading': 'Lade',
             'Select unit template:': 'Truppenvorlage auswählen:',
@@ -106,6 +109,9 @@ var scriptConfig = {
             'Delete Commands': 'Befehle löschen',
             'Plan Actions': 'Aktionen für den Plan',
             'Template Settings': 'Vorlageneinstellungen',
+            'Barbarian': 'Barbaren',
+            'Exported and copied to clipboard': 'Exportiert und in die Zwischenablage kopiert',
+            'Combine Plan': 'Plan kombinieren',
         }
     }
     ,
@@ -198,7 +204,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         <div>
                             ${planSelectorContent}
                         </div>
-                        <fieldset class="ra-mb10 sb-grid sb-grid-3">
+                        <fieldset class="ra-mb10 sb-grid sb-grid-4">
                             <legend>${twSDK.tt('Plan Actions')}</legend>
                             <div>
                                 <button id="savePlan" class="btn ">${twSDK.tt('Save Plan')}</button>
@@ -208,6 +214,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                             </div>
                             <div>
                                 <button id="deletePlan" class="btn ">${twSDK.tt('Delete Plan')}</button>
+                            </div>
+                            <div>
+                                <button id="combinePlan" class="btn ">${twSDK.tt('Combine Plan')}</button>
                             </div>
                         </fieldset>
                         <fieldset class="ra-mb10 sb-grid sb-grid-2">
@@ -265,8 +274,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             `
             twSDK.renderBoxWidget(
                 content,
-                'AttackPlanManager',
-                'attack-plan-manager',
+                'sbPlanManager',
+                'sb-plan-manager',
                 style
             );
 
@@ -283,6 +292,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let exportContent = sbPlans[parseInt(planId.substring(planId.lastIndexOf('-') + 1))];
                 let content = exportWorkbench(exportContent);
                 $('#exportInput').val(content);
+                twSDK.copyToClipboard(content);
+                UI.InfoMessage(twSDK.tt('Exported and copied to clipboard'));
             });
             $('#resetInput').click(function () {
                 resetInput();
@@ -341,6 +352,89 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 saveLocalStorage(localStorageSettings);
                 populatePlanSelector();
             });
+            /*
+            for (let i = 0; i < planIds.length; i++) {
+                let option = document.createElement('option');
+                option.value = planIds[i];
+                option.text = planNames && planNames[planIds[i]] ? planNames[planIds[i]] : planIds[i];
+                planSelector.appendChild(option);
+                if (DEBUG) console.debug(`${scriptInfo} Added plan with ID ${planIds[i]} to the plan selector`);
+            }
+            From twSDK:
+                renderFixedWidget: function (
+                    body,
+                    id,
+                    mainClass,
+                    customStyle,
+                    width,
+                    customName = this.scriptData.name
+                )
+            */
+
+            $('#combinePlan').click(function () {
+                const style = generateCSS();
+                const localStorageSettings = getLocalStorage();
+                const planNames = localStorageSettings.planNames;
+                let body = '<div class="ra-table-container"><table class="ra-mb10 ra-table" width="100%">';
+                for (let i = 0; i < planIds.length; i++) {
+                    let optionValue = planIds[i];
+                    let optionText = planNames && planNames[planIds[i]] ? planNames[planIds[i]] : planIds[i];
+                    body += `<tr width="100%"><td><input type="checkbox" id="${optionValue}" class="plan-checkbox"></td><td><label for="${optionValue}" style="font-weight: bold;">${optionText}</label></td></tr>`;
+                }
+                body += '</table></div>';
+                body += '<button id="combineButton" class="btn ra-mb10">Combine</button>';
+
+                twSDK.renderFixedWidget(
+                    body,
+                    'sbPlanSelectorPopup',
+                    'sbPlanSelectorPopupClass',
+                    style,
+                );
+
+                $('#combineButton').click(function () {
+                    const localStorageSettings = getLocalStorage();
+                    let selectedPlanIds = $('.plan-checkbox:checked').map(function () {
+                        return this.id;
+                    }).get();
+
+                    if (DEBUG) console.debug(`${scriptInfo} Selected plan IDs: ${selectedPlanIds.join(', ')}`);
+
+                    let targetPlanId = selectedPlanIds.includes(localStorageSettings.planSelector) ? localStorageSettings.planSelector : selectedPlanIds[0];
+
+                    if (DEBUG) console.debug(`${scriptInfo} Target plan ID: ${targetPlanId}`);
+
+                    let actualTargetPlanId = parseInt(targetPlanId.substring(targetPlanId.lastIndexOf('-') + 1));
+
+                    // Combine the plans into the target plan
+                    selectedPlanIds.forEach(planId => {
+                        if (planId !== targetPlanId) {
+                            let actualPlanIdToCombine = parseInt(planId.substring(planId.lastIndexOf('-') + 1));
+
+                            // Combine the commands into the target plan
+                            sbPlans[actualTargetPlanId] = sbPlans[actualTargetPlanId].concat(sbPlans[actualPlanIdToCombine]);
+                            deletePlan(actualPlanIdToCombine);
+                            delete sbPlans[actualPlanIdToCombine];
+
+                            // Remove the plan ID from the planIds array
+                            let index = planIds.indexOf(planId);
+                            if (index !== -1) planIds.splice(index, 1);
+
+                            if (DEBUG) console.debug(`${scriptInfo} Combined plan ${planId} into ${targetPlanId}`);
+                        }
+                    });
+
+                    // Redo the command IDs
+                    sbPlans[actualTargetPlanId].forEach((command, index) => {
+                        command.commandId = index + 1;
+                    });
+
+                    modifyPlan(actualTargetPlanId, sbPlans[actualTargetPlanId]);
+                    $('#sbPlanSelectorPopup').remove();
+                    renderUI();
+                    addEventHandlers();
+                    initializeInputFields();
+                });
+            });
             $('#buttonDeleteAll').click(function () {
                 let localStorageSettings = getLocalStorage();
                 let planId = localStorageSettings.planSelector;
@@ -350,8 +444,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                 // Remove all corresponding rows from the table
                 for (let command of sbPlans[actualPlanId]) {
-                    $(`#${command.trAttackId}`).remove();
-                    if (DEBUG) console.debug(`${scriptInfo} Removed command with ID: ${command.trAttackId} from the table`);
+                    $(`#${command.trCommandId}`).remove();
+                    if (DEBUG) console.debug(`${scriptInfo} Removed command with ID: ${command.trCommandId} from the table`);
                 }
 
                 // Clear all commands for the plan
@@ -371,7 +465,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let rowsToRemove = [];
                 sbPlans[actualPlanId] = sbPlans[actualPlanId].filter(command => {
                     if (command.sendTimestamp > now) return true;
-                    rowsToRemove.push(command.trAttackId);
+                    rowsToRemove.push(command.trCommandId);
                     return false;
                 });
 
@@ -392,9 +486,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                 let rowsToDelete = [];
 
-                sbPlans[actualPlanId] = sbPlans[actualPlanId].filter(attack => {
-                    if (attack.sent === false) return true;
-                    rowsToDelete.push(attack.trAttackId);
+                sbPlans[actualPlanId] = sbPlans[actualPlanId].filter(command => {
+                    if (command.sent === false) return true;
+                    rowsToDelete.push(command.trCommandId);
                     return false;
                 });
 
@@ -419,7 +513,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     if (command.checkboxId && $(`#${command.checkboxId}`).is(':checked')) {
                         if (DEBUG) console.debug(`${scriptInfo} Checkbox with ID: ${command.checkboxId} is checked for deletion`);
 
-                        rowsToDelete.push($(`#${command.trAttackId}`));
+                        rowsToDelete.push($(`#${command.trCommandId}`));
                         commandsToDelete.push(command);
                     }
                 }
@@ -457,7 +551,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 });
                 let commandsToSend = [];
                 for (let command of plan) {
-                    commandsToSend.push(generateLink(parseInt(command.originVillageId), parseInt(command.targetVillageId), command.units, command.trAttackId, command.attackType));
+                    commandsToSend.push(generateLink(parseInt(command.originVillageId), parseInt(command.targetVillageId), command.units, command.trCommandId, command.type));
                     command.sent = true;
                     if (commandsToSend.length >= number) break;
                 }
@@ -485,7 +579,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     let sendTimestamp = parseInt(command.sendTimestamp);
                     let remainingTimestamp = parseInt(sendTimestamp - timeNow);
                     if (remainingTimestamp > time) continue;
-                    commandsToSend.push(generateLink(parseInt(command.originVillageId), parseInt(command.targetVillageId), command.units, command.trAttackId, command.attackType));
+                    commandsToSend.push(generateLink(parseInt(command.originVillageId), parseInt(command.targetVillageId), command.units, command.trCommandId, command.type));
                     command.sent = true;
                 }
                 if (DEBUG) console.debug(`${scriptInfo} Generated ${commandsToSend.length} commands to send`);
@@ -573,7 +667,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         grid-template-columns: 20% 80%;
                     }
                     .sb-grid-20-60-40-20 {
-                        grid-template-columns: calc(15% - 10px) calc(40% - 30px) calc(30% - 20px) calc(15% - 10px);
+                        grid-template-columns: calc(15% - 10px) calc(43% - 30px) calc(30% - 20px) calc(12% - 10px);
                     }
                     .sb-grid-17-17-67 {
                         grid-template-columns: calc(17% - 20px) calc(17% - 20px) calc(66% - 40px);
@@ -708,7 +802,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     .templateContainer div:first-child {
                         border-left: none;
                     }
-                    #AttackPlanManager {
+                    #sbPlanManager {
                         min-width: 1200px;
                     }
                     .sbPlan {
@@ -767,12 +861,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             let tbodyContent = '';
             for (let i = 0; i < plan.length; i++) {
                 let row = plan[i];
-                let attackId = row.attackId;
-                let timeStampId = `${id}-remainingTimestamp-${attackId}`;
-                let buttonSendId = `${id}-buttonsend-${attackId}`;
-                let buttonDeleteId = `${id}-buttondelete-${attackId}`;
-                let checkboxId = `${id}-checkbox-${attackId}`;
-                let trAttackId = `${id}-attackId-${attackId}`;
+                let commandId = row.commandId;
+                let timeStampId = `${id}-remainingTimestamp-${commandId}`;
+                let buttonSendId = `${id}-buttonsend-${commandId}`;
+                let buttonDeleteId = `${id}-buttondelete-${commandId}`;
+                let checkboxId = `${id}-checkbox-${commandId}`;
+                let trCommandId = `${id}-commandId-${commandId}`;
                 sbButtonIDsAPM.push(buttonDeleteId);
                 sbButtonIDsAPM.push(buttonSendId);
 
@@ -781,7 +875,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let getTravelTimeInMS = twSDK.getTravelTimeInSecond(distance, unitSpeed) * 1000;
                 let sendTimestamp = parseInt(parseInt(row.arrivalTimestamp) - getTravelTimeInMS);
                 let remainingTimestamp = parseInt(sendTimestamp - Date.now());
-                let attackTypeImageLink = attackTypeToImageLink(parseInt(row.attackType));
+                let commandTypeImageLink = commandTypeToImageLink(parseInt(row.type));
 
 
                 let sendTime = convertTimestampToDateString(sendTimestamp);
@@ -789,21 +883,20 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 row.sendTimestamp = sendTimestamp;
                 row.checkboxId = checkboxId;
                 row.buttonSendId = buttonSendId;
-                row.trAttackId = trAttackId;
+                row.trCommandId = trCommandId;
                 row.remainingTimestamp = remainingTimestamp;
-                row.sent = false;
 
-                if (DEBUG) console.debug(`${scriptInfo} Processed row with attack ID: ${attackId} for plan with ID: ${id}`);
+                if (DEBUG) console.debug(`${scriptInfo} Processed row with command ID: ${commandId} for plan with ID: ${id}`);
 
                 tbodyContent += `
-            <tr id="${trAttackId}">
+            <tr id="${trCommandId}">
                 <td class="ra-tac"><input type="checkbox" id="${checkboxId}"></td>
                 <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.originVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.originVillageId))[2]}|${villageMap.get(parseInt(row.originVillageId))[3]}</span></a></td>
-                <td class="ra-tac">${villageMap.get(parseInt(row.originVillageId))[4] !== 0 ? `<a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.originVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.originVillageId))[4]))[1]}</span></a>` : '<span class="quickedit-label">N/A</span>'}</td>
+                <td class="ra-tac">${villageMap.get(parseInt(row.originVillageId))[4] !== 0 ? `<a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.originVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.originVillageId))[4]))[1]}</span></a>` : `<span class="quickedit-label">${twSDK.tt('Barbarian')}</span>`}</td>
                 <td class="ra-tac"><a href="/game.php?village=${game_data.village.id}&screen=info_village&id=${row.targetVillageId}"><span class="quickedit-label">${villageMap.get(parseInt(row.targetVillageId))[2]}|${villageMap.get(parseInt(row.targetVillageId))[3]}</span></td>
-                <td class="ra-tac">${villageMap.get(parseInt(row.targetVillageId))[4] !== 0 ? `<a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></a>` : '<span class="quickedit-label">N/A</span>'}</td>
+                <td class="ra-tac">${villageMap.get(parseInt(row.targetVillageId))[4] !== 0 ? `<a href="/game.php?village=${game_data.village.id}&screen=info_player&id=${villageMap.get(parseInt(row.targetVillageId))[4]}"><span class="quickedit-label">${playersMap.get(parseInt(villageMap.get(parseInt(row.targetVillageId))[4]))[1]}</span></a>` : `<span class="quickedit-label">${twSDK.tt('Barbarian')}</span>`}</td>
                 <td class="ra-tac"><img src="https://dsde.innogamescdn.com/asset/9f9563bf/graphic/unit/unit_${row.slowestUnit}.png"></td>
-                <td class="ra-tac"><img src="${attackTypeImageLink}"></td>
+                <td class="ra-tac"><img src="${commandTypeImageLink}"></td>
                 <td class="ra-tac">${sendTime}</td>
                 <td class="ra-tac">${arrivalTime}</td>
                 <td id="${timeStampId}" class="ra-tac"><span class="timer" data-endtime>${twSDK.secondsToHms(parseInt(remainingTimestamp / 1000))}</span></td>
@@ -816,14 +909,14 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return tbodyContent;
         }
 
-        function generateLink(villageId1, villageId2, unitInfo, idInfo, attackType) {
-            if (DEBUG) console.debug(`${scriptInfo} Generating link for attack from village ${villageId1} to village ${villageId2}`);
+        function generateLink(villageId1, villageId2, unitInfo, idInfo, commandType) {
+            if (DEBUG) console.debug(`${scriptInfo} Generating link for command from village ${villageId1} to village ${villageId2}`);
             let completeLink = getCurrentURL();
             completeLink += twSDK.sitterId.length > 0 ? `?${twSDK.sitterId}&village=${villageId1}&screen=place&target=${villageId2}` : `?village=${villageId1}&screen=place&target=${villageId2}`;
 
             let villageUnits = unitObject[villageId1];
-            let [planId, _, attackId] = idInfo.split('-');
-            let templateId = planId + "-templateSelector-" + attackType;
+            let [planId, _, commandId] = idInfo.split('-');
+            let templateId = planId + "-templateSelector-" + commandType;
             const localStorageSettings = getLocalStorage();
             let useTemplates = parseBool(localStorageSettings.useTemplates);
             const templateName = localStorageSettings.templateSelections[templateId];
@@ -853,7 +946,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 completeLink += `&${unit}=${amount}`;
             }
 
-            if (DEBUG) console.debug(`${scriptInfo} Generated link for attack from village ${villageId1} to village ${villageId2}`);
+            if (DEBUG) console.debug(`${scriptInfo} Generated link for command from village ${villageId1} to village ${villageId2}`);
             return completeLink;
         }
 
@@ -875,10 +968,10 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     sendButton.id = buttonId + "Send";
                     sendButton.classList.add("btn");
                     sendButton.onclick = function () {
-                        let [planId, _, attackId] = buttonId.split('-');
+                        let [planId, _, commandId] = buttonId.split('-');
                         let key;
                         for (key in sbPlans[planId]) {
-                            if (sbPlans[planId][key].attackId === attackId) {
+                            if (sbPlans[planId][key].commandId === commandId) {
                                 sbPlans[planId][key].sent = true;
                                 break;
                             }
@@ -886,15 +979,26 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         sendButton.classList.add("btn-confirm-yes");
                         let originVillageId = parseInt(sbPlans[planId][key].originVillageId);
                         let targetVillageId = parseInt(sbPlans[planId][key].targetVillageId);
-                        let trAttackId = sbPlans[planId][key].trAttackId;
-                        let attackType = sbPlans[planId][key].attackType;
+                        let trCommandId = sbPlans[planId][key].trCommandId;
+                        let type = sbPlans[planId][key].type;
                         let units = sbPlans[planId][key].units;
-                        if (DEBUG) console.debug(`${scriptInfo} Sending attack from village ${originVillageId} to village ${targetVillageId}`);
-                        let sendLink = generateLink(originVillageId, targetVillageId, units, trAttackId, attackType);
+                        if (DEBUG) console.debug(`${scriptInfo} Sending command from village ${originVillageId} to village ${targetVillageId}`);
+                        let sendLink = generateLink(originVillageId, targetVillageId, units, trCommandId, type);
                         window.open(sendLink, '_blank');
+                    }
+                    let [planId, _, commandId] = buttonId.split('-');
+                    let key;
+                    for (key in sbPlans[planId]) {
+                        if (sbPlans[planId][key].commandId === commandId) {
+                            if (sbPlans[planId][key].sent) {
+                                sendButton.classList.add("btn-confirm-yes");
+                            }
+                            break;
+                        }
                     }
                     let sendParent = document.getElementById(buttonId);
                     sendParent.appendChild(sendButton);
+
                 }
                 if (isDeleteButton) {
                     let deleteButton = document.createElement("button");
@@ -902,16 +1006,16 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     deleteButton.id = buttonId + "Delete";
                     deleteButton.classList.add("btn");
                     deleteButton.onclick = function () {
-                        let [planId, _, attackId] = buttonId.split('-');
+                        let [planId, _, commandId] = buttonId.split('-');
                         let row = deleteButton.parentNode.parentNode;
                         row.parentNode.removeChild(row);
                         let plan = sbPlans[planId];
                         if (plan) {
-                            let attackIndex = plan.findIndex(attack => attack.attackId === attackId);
-                            if (attackIndex !== -1) plan.splice(attackIndex, 1);
+                            let commandIndex = plan.findIndex(command => command.commandId === commandId);
+                            if (commandIndex !== -1) plan.splice(commandIndex, 1);
                         }
                         modifyPlan(parseInt(planId), plan);
-                        if (DEBUG) console.debug(`${scriptInfo} Deleted attack with ID ${attackId} from plan ${planId}`);
+                        if (DEBUG) console.debug(`${scriptInfo} Deleted command with ID ${commandId} from plan ${planId}`);
                     }
                     let deleteParent = document.getElementById(buttonId);
                     deleteParent.appendChild(deleteButton);
@@ -929,7 +1033,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 return false;
             }
         }
-        function attackTypeToImageLink(attackType) {
+        function commandTypeToImageLink(type) {
             const baseURL = 'https://ds-ultimate.de/images/ds_images/';
             const imageMap = {
                 0: 'unit/spear.png',
@@ -981,7 +1085,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 46: 'wb/def_fake.png',
             };
 
-            return baseURL + imageMap[attackType];
+            return baseURL + (imageMap[type] || imageMap[8]);
         }
 
         function convertTimestampToDateString(timestamp) {
@@ -999,7 +1103,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
         function generateImport() {
             const html = `
-                <legend>${twSDK.tt('Import attack plan:')}</legend>
+                <legend>${twSDK.tt('Import plan:')}</legend>
                 <textarea id="importInput" class="sb-input-textarea"></textarea>
                 <div class="ra-mb10">
                     <button id="importPlan" class="btn">${twSDK.tt('Import')}</button>
@@ -1011,7 +1115,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         function generateExport() {
             const html = `
 
-                    <legend>${twSDK.tt('Export attack plan:')}</legend>
+                    <legend>${twSDK.tt('Export plan:')}</legend>
                     <textarea id="exportInput" class="sb-input-textarea"></textarea>
                 
                 <div class="ra-mb10">
@@ -1027,7 +1131,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             <table id="templateTable" class="ra-mb10 ra-table">
                 <thead>
                     <tr>
-                        <th>${twSDK.tt('Attack type')}</th>
+                        <th>${twSDK.tt('Type')}</th>
                         <th>${twSDK.tt('Unit Template')}</th>
                         <th>${twSDK.tt('Template Preview')}</th>
                     </tr>
@@ -1049,7 +1153,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             let lastDashIndex = planId.lastIndexOf('-');
             let actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
             let plan = sbPlans[actualPlanId];
-            let attackTypes = [];
+            let commandTypes = [];
 
             if (DEBUG) console.debug(`${scriptInfo} Unit templates:`, troopTemplates);
 
@@ -1060,23 +1164,30 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 templateDiv.show();
             }
 
-            for (let attack of plan) {
-                if (!attackTypes.includes(attack.attackType)) {
-                    attackTypes.push(attack.attackType);
+            for (let command of plan) {
+                if (!commandTypes.includes(command.type)) {
+                    commandTypes.push(command.type);
                 }
             }
 
-            if (DEBUG) console.debug(`${scriptInfo} Attack types:`, attackTypes);
+            if (DEBUG) console.debug(`${scriptInfo} Command types:`, commandTypes);
 
             table.find('tbody').empty();
 
-            for (let attackType of attackTypes) {
+            if (commandTypes.length === 0) {
+                templateDiv.hide();
+                return;
+            } else {
+                templateDiv.show();
+            }
+
+            for (let commandType of commandTypes) {
                 let row = $('<tr></tr>');
-                let attackTypeImageLink = attackTypeToImageLink(attackType);
-                let attackTypeCell = $('<td></td>').html(`<img src="${attackTypeImageLink}">`);
-                row.append(attackTypeCell);
+                let commandTypeImageLink = commandTypeToImageLink(commandType);
+                let commandTypeCell = $('<td></td>').html(`<img src="${commandTypeImageLink}">`);
+                row.append(commandTypeCell);
                 let templateCell = $('<td></td>');
-                let id = `${actualPlanId}-templateSelector-${attackType}`;
+                let id = `${actualPlanId}-templateSelector-${commandType}`;
                 let select = $('<select></select>').attr('id', id);
                 for (let template of troopTemplates) {
                     let option = $('<option></option>').val(template.name).text(template.name);
@@ -1119,11 +1230,12 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 row.append(previewCell);
                 table.find('tbody').append(row);
             }
+            if (DEBUG) console.debug(`${scriptInfo} Filled template table`);
         }
 
         function generatePlanSelector() {
             const html = `
-                    <legend>${twSDK.tt('Select attack plan:')}</legend>
+                    <legend>${twSDK.tt('Select plan:')}</legend>
                     <select id="planSelector" class="sb-input-select">
                         <option value="---">---</option>
                     </select>
@@ -1187,14 +1299,14 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 }, {});
 
                 let planObject = {
-                    attackId: i.toString(),
+                    commandId: i.toString(),
                     originVillageId: parseInt(planParts[0]),
                     targetVillageId: parseInt(planParts[1]),
                     slowestUnit: planParts[2],
                     arrivalTimestamp: parseInt(planParts[3]),
-                    attackType: parseInt(planParts[4]),
-                    drawIn: planParts[5] === 'false',
-                    sent: planParts[6] === 'false',
+                    type: parseInt(planParts[4]),
+                    drawIn: planParts[5] === 'true',
+                    sent: planParts[6] === 'true',
                     units: units
                 };
 
@@ -1206,25 +1318,25 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return planObjects;
         }
 
-
+        // origin, target, slowest, arrival, type, drawIn=true, sent=false, units
         function exportWorkbench(planArray) {
             let exportWB = "";
             for (let row of planArray) {
                 let {
-                    attackId,
+                    commandId,
                     originVillageId,
                     targetVillageId,
                     slowestUnit,
                     arrivalTimestamp,
-                    attackType,
+                    type,
                     drawIn,
                     sent,
                     units
                 } = row;
 
-                let arrTimestamp = (new Date(arrivalTimestamp).getTime()) + attackType;
+                let arrTimestamp = (new Date(arrivalTimestamp).getTime()) + type;
                 exportWB += originVillageId + "&" + targetVillageId + "&" + slowestUnit +
-                    "&" + arrTimestamp + "&" + attackType + "&" + drawIn + "&" + sent;
+                    "&" + arrTimestamp + "&" + type + "&" + drawIn + "&" + sent;
 
                 for (let unit in units) {
                     exportWB += "&" + unit + "=" + btoa(units[unit]);
@@ -1267,7 +1379,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
 
         function openDatabase() {
-            let openRequest = indexedDB.open("sbAttackPlanManager");
+            let openRequest = indexedDB.open("sbPlanManager");
 
             openRequest.onsuccess = function (event) {
                 if (DEBUG) console.debug(`${scriptInfo} Database opened successfully`);
@@ -1291,7 +1403,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
         function addPlan(plan) {
             return new Promise((resolve, reject) => {
-                let openRequest = indexedDB.open("sbAttackPlanManager");
+                let openRequest = indexedDB.open("sbPlanManager");
 
                 openRequest.onsuccess = function (event) {
                     let db = event.target.result;
@@ -1318,7 +1430,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
 
         function modifyPlan(planId, plan) {
-            let openRequest = indexedDB.open("sbAttackPlanManager");
+            let openRequest = indexedDB.open("sbPlanManager");
 
             openRequest.onsuccess = function (event) {
                 let db = event.target.result;
@@ -1342,7 +1454,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
         function getAllPlans() {
             return new Promise((resolve, reject) => {
-                let openRequest = indexedDB.open("sbAttackPlanManager");
+                let openRequest = indexedDB.open("sbPlanManager");
 
                 openRequest.onsuccess = function (event) {
                     let db = event.target.result;
@@ -1378,7 +1490,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
 
         function deletePlan(planId) {
-            let openRequest = indexedDB.open("sbAttackPlanManager");
+            let openRequest = indexedDB.open("sbPlanManager");
 
             openRequest.onsuccess = function (event) {
                 let db = event.target.result;
@@ -1492,7 +1604,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         }
 
         function getLocalStorage() {
-            const localStorageSettings = JSON.parse(localStorage.getItem('sbAttackPlanManager'));
+            const localStorageSettings = JSON.parse(localStorage.getItem('sbPlanManager'));
             const expectedSettings = [
                 'planSelector',
                 'sendByTime',
@@ -1530,7 +1642,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             }
         }
         function saveLocalStorage(settingsObject) {
-            localStorage.setItem('sbAttackPlanManager', JSON.stringify(settingsObject));
+            localStorage.setItem('sbPlanManager', JSON.stringify(settingsObject));
             if (DEBUG) console.debug(`${scriptInfo}: Settings saved to local storage:`, settingsObject);
         }
 

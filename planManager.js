@@ -355,6 +355,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 populatePlanSelector();
             });
             $('#combinePlan').click(function () {
+                if ($('#sbPlanSelectorPopup').length > 0) {
+                    $('#sbPlanSelectorPopup').remove();
+                }
                 const style = generateCSS();
                 const localStorageSettings = getLocalStorage();
                 const planNames = localStorageSettings.planNames;
@@ -1234,6 +1237,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             return html;
         }
         function populatePlanSelector() {
+            if ($('#sbPlanSelectorPopup').length > 0) {
+                $('#sbPlanSelectorPopup').remove();
+            }
             let localStorageSettings = getLocalStorage();
             let planNames = localStorageSettings.planNames;
             let planSelector = document.getElementById('planSelector');
@@ -1574,6 +1580,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
             switch (inputId) {
                 case "planSelector":
+                    if ($('#sbPlanSelectorPopup').length > 0) {
+                        $('#sbPlanSelectorPopup').remove();
+                    }
                     inputValue = $(this).val();
                     for (let planId of planIds) {
                         planId === inputValue ? $(`#${planId}`).show() : $(`#${planId}`).hide();

@@ -1335,13 +1335,13 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
                 let arrTimestamp = (new Date(arrivalTimestamp).getTime()) + type;
                 exportWB += originVillageId + "&" + targetVillageId + "&" + slowestUnit +
-                    "&" + arrTimestamp + "&" + type + "&" + drawIn + "&" + sent;
+                    "&" + arrTimestamp + "&" + type + "&" + drawIn + "&" + sent + "&";
 
+                let unitsArray = [];
                 for (let unit in units) {
-                    exportWB += "&" + unit + "=" + btoa(units[unit]);
+                    unitsArray.push(unit + "=" + btoa(units[unit]));
                 }
-
-                exportWB += "\n";
+                exportWB += unitsArray.join('/') + "\n";
             }
 
             return exportWB;

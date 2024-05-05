@@ -75,6 +75,7 @@ var scriptConfig = {
             'Exported and copied to clipboard': 'Exported and copied to clipboard',
             'Combine Plan': 'Combine Plan',
             'Please select more plans to combine': 'Please select more plans to combine',
+            'Saved': 'Saved',
         },
         de_DE: {
             'Redirecting...': 'Weiterleiten...',
@@ -114,6 +115,7 @@ var scriptConfig = {
             'Exported and copied to clipboard': 'Exportiert und in die Zwischenablage kopiert',
             'Combine Plan': 'Kombinieren',
             'Please select more plans to combine': 'Bitte wählen Sie mehr Pläne aus, um sie zu kombinieren',
+            'Saved': 'Gespeichert',
         }
     }
     ,
@@ -310,6 +312,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     console.debug(`${scriptInfo} Details of the plan being saved: `, sbPlans[actualPlanId]);
                 }
                 modifyPlan(parseInt(actualPlanId), sbPlans[actualPlanId]);
+                UI.InfoMessage(twSDK.tt('Saved'));
             });
             $('#deletePlan').click(function () {
                 let localStorageSettings = getLocalStorage();

@@ -857,6 +857,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             for (let i = 0; i < plan.length; i++) {
                 let row = plan[i];
                 let commandId = row.commandId;
+                row.commandId = parseInt(row.commandId);
                 let timeStampId = `${id}-remainingTimestamp-${commandId}`;
                 let buttonSendId = `${id}-buttonsend-${commandId}`;
                 let buttonDeleteId = `${id}-buttondelete-${commandId}`;
@@ -910,7 +911,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             completeLink += twSDK.sitterId.length > 0 ? `?${twSDK.sitterId}&village=${villageId1}&screen=place&target=${villageId2}` : `?village=${villageId1}&screen=place&target=${villageId2}`;
 
             let villageUnits = unitObject[villageId1];
-            let [planId, _, commandId] = idInfo.split('-').map((x, i) => i !== 1 ? parseInt(x) : x);
+            let [planId, _, commandId] = idInfo.split('-').map((x, i) => i === 0 ? parseInt(x) : x);
             let templateId = planId + "-templateSelector-" + commandType;
             const localStorageSettings = getLocalStorage();
             let useTemplates = parseBool(localStorageSettings.useTemplates);
@@ -984,7 +985,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     let [planId, _, commandId] = buttonId.split('-').map((x, i) => i !== 1 ? parseInt(x) : x);
                     let key;
                     for (key in sbPlans[planId]) {
-                        if (sbPlans[planId][key].commandId === commandId) {
+                        if (parseInt(sbPlans[planId][key].commandId) === commandId) {
                             if (parseBool(sbPlans[planId][key].sent)) {
                                 sendButton.classList.add("btn-confirm-yes");
                             }

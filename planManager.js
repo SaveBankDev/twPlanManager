@@ -97,10 +97,10 @@ var scriptConfig = {
             'Send by Time (min)': 'Senden nach Zeit (min)',
             'Send': 'Senden',
             'Send by Number': 'Senden nach Anzahl',
-            'Delete selected commands': 'Ausgewählte Befehle löschen',
-            'Delete sent commands': 'Gesendete Befehle löschen',
-            'Delete expired commands': 'Abgelaufene Befehle löschen',
-            'Delete all commands': 'Alle Befehle löschen',
+            'Delete selected commands': 'Ausgewählte löschen',
+            'Delete sent commands': 'Gesendete löschen',
+            'Delete expired commands': 'Abgelaufene löschen',
+            'Delete all commands': 'Alle löschen',
             'Load Troop Templates': 'Truppenvorlagen laden',
             'Rename Plan': 'Umbenennen',
             'Unit Preview': 'Truppenvorschau',
@@ -910,7 +910,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             completeLink += twSDK.sitterId.length > 0 ? `?${twSDK.sitterId}&village=${villageId1}&screen=place&target=${villageId2}` : `?village=${villageId1}&screen=place&target=${villageId2}`;
 
             let villageUnits = unitObject[villageId1];
-            let [planId, _, commandId] = idInfo.split('-');
+            let [planId, _, commandId] = idInfo.split('-').map((x, i) => i !== 1 ? parseInt(x) : x);
             let templateId = planId + "-templateSelector-" + commandType;
             const localStorageSettings = getLocalStorage();
             let useTemplates = parseBool(localStorageSettings.useTemplates);
@@ -963,7 +963,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     sendButton.id = buttonId + "Send";
                     sendButton.classList.add("btn");
                     sendButton.onclick = function () {
-                        let [planId, _, commandId] = buttonId.split('-');
+                        let [planId, _, commandId] = buttonId.split('-').map((x, i) => i !== 1 ? parseInt(x) : x);
                         let key;
                         for (key in sbPlans[planId]) {
                             if (sbPlans[planId][key].commandId === commandId) {
@@ -981,7 +981,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         let sendLink = generateLink(originVillageId, targetVillageId, units, trCommandId, type);
                         window.open(sendLink, '_blank');
                     }
-                    let [planId, _, commandId] = buttonId.split('-');
+                    let [planId, _, commandId] = buttonId.split('-').map((x, i) => i !== 1 ? parseInt(x) : x);
                     let key;
                     for (key in sbPlans[planId]) {
                         if (sbPlans[planId][key].commandId === commandId) {
@@ -1001,7 +1001,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     deleteButton.id = buttonId + "Delete";
                     deleteButton.classList.add("btn");
                     deleteButton.onclick = function () {
-                        let [planId, _, commandId] = buttonId.split('-');
+                        let [planId, _, commandId] = buttonId.split('-').map((x, i) => i !== 1 ? parseInt(x) : x);
                         let row = deleteButton.parentNode.parentNode;
                         row.parentNode.removeChild(row);
                         let plan = sbPlans[planId];

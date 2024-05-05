@@ -552,7 +552,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     $('#' + command.buttonSendId + ' button').addClass('btn-confirm-yes');
                     if (commandsToSend.length >= number) break;
                 }
-                modifyPlan(parseInt(actualPlanId), sbPlans[actualPlanId]);
+                modifyPlan(parseInt(actualPlanId), plan);
                 if (DEBUG) console.debug(`${scriptInfo} Generated ${commandsToSend.length} commands to send`);
                 let delay = 200;
                 for (let link of commandsToSend) {
@@ -582,7 +582,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     $('#' + command.buttonSendId + ' button').addClass('btn-confirm-yes');
                 }
                 if (DEBUG) console.debug(`${scriptInfo} Generated ${commandsToSend.length} commands to send`);
-                modifyPlan(parseInt(actualPlanId), sbPlans[actualPlanId]);
+                modifyPlan(parseInt(actualPlanId), plan);
                 let delay = 0;
                 for (let link of commandsToSend) {
                     setTimeout(() => {
@@ -982,7 +982,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         let trCommandId = sbPlans[planId][key].trCommandId;
                         let type = sbPlans[planId][key].type;
                         let units = sbPlans[planId][key].units;
-                        modifyPlan(parseInt(actualPlanId), sbPlans[actualPlanId]);
+                        modifyPlan(parseInt(planId), sbPlans[planId]);
                         if (DEBUG) console.debug(`${scriptInfo} Sending command from village ${originVillageId} to village ${targetVillageId}`);
                         let sendLink = generateLink(originVillageId, targetVillageId, units, trCommandId, type);
                         window.open(sendLink, '_blank');

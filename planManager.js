@@ -87,8 +87,8 @@ var scriptConfig = {
             'Select plan:': 'Plan auswählen:',
             'Export': 'Exportieren',
             'Reset Input': 'Eingaben zurücksetzen',
-            'Delete Plan': 'Plan löschen',
-            'Save Plan': 'Plan speichern',
+            'Delete Plan': 'Löschen',
+            'Save Plan': 'Speichern',
             'Type': 'Typ',
             'Unit Template': 'Truppenvorlage',
             'Loading': 'Lade',
@@ -102,7 +102,7 @@ var scriptConfig = {
             'Delete expired commands': 'Abgelaufene Befehle löschen',
             'Delete all commands': 'Alle Befehle löschen',
             'Load Troop Templates': 'Truppenvorlagen laden',
-            'Rename Plan': 'Plan umbenennen',
+            'Rename Plan': 'Umbenennen',
             'Unit Preview': 'Truppenvorschau',
             'Template Preview': 'Vorlagenvorschau',
             'Use Troop Templates': 'Truppenvorlagen verwenden',
@@ -112,7 +112,7 @@ var scriptConfig = {
             'Template Settings': 'Vorlageneinstellungen',
             'Barbarian': 'Barbaren',
             'Exported and copied to clipboard': 'Exportiert und in die Zwischenablage kopiert',
-            'Combine Plan': 'Plan kombinieren',
+            'Combine Plan': 'Kombinieren',
             'Please select more plans to combine': 'Bitte wählen Sie mehr Pläne aus, um sie zu kombinieren',
         }
     }
@@ -546,6 +546,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 for (let command of plan) {
                     commandsToSend.push(generateLink(parseInt(command.originVillageId), parseInt(command.targetVillageId), command.units, command.trCommandId, command.type));
                     command.sent = true;
+                    $('#' + command.buttonSendId + ' button').addClass('btn-confirm-yes');
                     if (commandsToSend.length >= number) break;
                 }
                 if (DEBUG) console.debug(`${scriptInfo} Generated ${commandsToSend.length} commands to send`);
@@ -574,6 +575,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     if (remainingTimestamp > time) continue;
                     commandsToSend.push(generateLink(parseInt(command.originVillageId), parseInt(command.targetVillageId), command.units, command.trCommandId, command.type));
                     command.sent = true;
+                    $('#' + command.buttonSendId + ' button').addClass('btn-confirm-yes');
                 }
                 if (DEBUG) console.debug(`${scriptInfo} Generated ${commandsToSend.length} commands to send`);
 
@@ -754,8 +756,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         border-color: #006712;
                         border-radius: 3px;
                         cursor: pointer;
-                        
                     }
+
                     #resetInput:hover {
                         background: #c92722;
                         background: linear-gradient(to bottom, #c92722 0%,#a00d08 100%);
@@ -983,7 +985,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     let key;
                     for (key in sbPlans[planId]) {
                         if (sbPlans[planId][key].commandId === commandId) {
-                            if (sbPlans[planId][key].sent) {
+                            if (parseBool(sbPlans[planId][key].sent)) {
                                 sendButton.classList.add("btn-confirm-yes");
                             }
                             break;
@@ -1304,8 +1306,8 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     slowestUnit: planParts[2],
                     arrivalTimestamp: parseInt(planParts[3]),
                     type: parseInt(planParts[4]),
-                    drawIn: planParts[5] === 'true',
-                    sent: planParts[6] === 'true',
+                    drawIn: parseBool(planParts[5]),
+                    sent: parseBool(planParts[6]),
                     units: units
                 };
 

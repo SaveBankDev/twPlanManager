@@ -1300,6 +1300,9 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             for (let i = 0; i < planArray.length; i++) {
                 let planParts = planArray[i].split("&");
                 let units = planParts[7].split("/").reduce((obj, str) => {
+                    if (!str) {
+                        return obj;
+                    }
                     const [unit, value] = str.split("=");
                     if (unit === undefined || value === undefined) {
                         return obj;

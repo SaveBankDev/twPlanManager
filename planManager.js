@@ -1301,7 +1301,10 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 let planParts = planArray[i].split("&");
                 let units = planParts[7].split("/").reduce((obj, str) => {
                     const [unit, value] = str.split("=");
-                    obj[unit] = atob(value);
+                    if (unit === undefined || value === undefined) {
+                        return obj;
+                    }
+                    obj[unit] = parseInt(atob(value));
                     return obj;
                 }, {});
 

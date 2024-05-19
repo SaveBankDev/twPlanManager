@@ -598,8 +598,31 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
             });
 
             $(document).ready(function () {
+                var sbStandardButtonIds = [
+                    "savePlan",
+                    "renamePlan",
+                    "deletePlan",
+                    "combinePlan",
+                    "buttonLoadTemplates",
+                    "resetInput",
+                    "buttonByTime",
+                    "buttonByNumber",
+                    "buttonDeleteSelected",
+                    "buttonDeleteSent",
+                    "buttonDeleteExpired",
+                    "buttonDeleteAll"
+                ];
+
+                $.each(sbStandardButtonIds, function (index, id) {
+                    $('#' + id).keydown(function (event) {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                        }
+                    });
+                });
+
                 if (DEBUG) console.debug(`${scriptInfo} Document is ready, attaching change handlers to IDs`);
-                sbAllIdsAPM.forEach(function (id) {
+                $.each(sbAllIdsAPM, function (index, id) {
                     $('#' + id).on('change', handleInputChange);
                     if (DEBUG) console.debug(`${scriptInfo} Attached change handler to ID: ${id}`);
                 });
@@ -987,6 +1010,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         let sendLink = generateLink(originVillageId, targetVillageId, units, trCommandId, type);
                         window.open(sendLink, '_blank');
                     }
+                    sendButton.addEventListener('keydown', function (event) {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                        }
+                    });
                     let [planId, _, commandId] = buttonId.split('-').map((x, i) => i !== 1 ? parseInt(x) : x);
                     let key;
                     for (key in sbPlans[planId]) {
@@ -999,7 +1027,6 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     }
                     let sendParent = document.getElementById(buttonId);
                     sendParent.appendChild(sendButton);
-
                 }
                 if (isDeleteButton) {
                     let deleteButton = document.createElement("button");
@@ -1018,6 +1045,11 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                         modifyPlan(parseInt(planId), plan);
                         if (DEBUG) console.debug(`${scriptInfo} Deleted command with ID ${commandId} from plan ${planId}`);
                     }
+                    deleteButton.addEventListener('keydown', function (event) {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                        }
+                    });
                     let deleteParent = document.getElementById(buttonId);
                     deleteParent.appendChild(deleteButton);
                 }

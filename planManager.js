@@ -1568,7 +1568,13 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 return;
             }
             LAST_REQUEST = Date.now();
-            let baseUrl = getCurrentURL() + `?village=${game_data.village.id}&screen=place&mode=templates`;
+            let baseUrl
+            if (game_data.player.sitter > 0) {
+                baseUrl = getCurrentURL() + `?village=${game_data.village.id}&screen=place&mode=templates&t=${game_data.player.id}`;
+            } else {
+                baseUrl = getCurrentURL() + `?village=${game_data.village.id}&screen=place&mode=templates`;
+            }
+
 
             let response = await fetch(baseUrl);
             let text = await response.text();

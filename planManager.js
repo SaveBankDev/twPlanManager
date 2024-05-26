@@ -1,12 +1,12 @@
 /*
 * Script Name: Plan Manager
-* Version: v1.0
-* Last Updated: 2024-04-28
+* Version: v1.1
+* Last Updated: 2024-05-26
 * Author: SaveBank
 * Author Contact: Discord: savebank 
-* Approved: 
-* Approved Date: 
-* Mod: 
+* Approved: Yes
+* Approved Date: 2024-05-02
+* Mod: RedAlert
 */
 
 
@@ -31,7 +31,7 @@ var scriptConfig = {
     scriptData: {
         prefix: 'sbAPM',
         name: 'Plan Manager',
-        version: 'v1.0',
+        version: 'v1.1',
         author: 'SaveBank',
         authorUrl: 'https://forum.tribalwars.net/index.php?members/savebank.131111/',
         helpLink: 'https://forum.tribalwars.net/index.php?threads/attack-plan-manager.292267/',
@@ -130,7 +130,7 @@ var scriptConfig = {
 
 
 
-$.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript.src}`,
+$.getScript(`https://cdn.jsdelivr.net/gh/SaveBankDev/Tribal-Wars-Scripts-SDK@main/twSDK.js`,
     async function () {
         const startTime = performance.now();
         if (DEBUG) {
@@ -429,6 +429,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     renderUI();
                     addEventHandlers();
                     initializeInputFields();
+                    updateCommandCount();
                 });
             });
             $('#buttonDeleteAll').click(function () {
@@ -447,6 +448,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 // Clear all commands for the plan
                 sbPlans[actualPlanId] = [];
                 modifyPlan(parseInt(actualPlanId), sbPlans[actualPlanId]);
+                updateCommandCount();
             });
 
             $('#buttonDeleteExpired').click(function () {
@@ -471,6 +473,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 }
 
                 modifyPlan(parseInt(actualPlanId), sbPlans[actualPlanId]);
+                updateCommandCount();
             });
 
             $('#buttonDeleteSent').click(function () {
@@ -494,6 +497,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 }
 
                 modifyPlan(parseInt(actualPlanId), sbPlans[actualPlanId]);
+                updateCommandCount();
             });
 
             $('#buttonDeleteSelected').click(function () {
@@ -523,6 +527,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 if (DEBUG) console.debug(`${scriptInfo} Updated plan with ID: ${actualPlanId} after deleting selected commands`);
 
                 modifyPlan(parseInt(actualPlanId), sbPlans[actualPlanId]);
+                updateCommandCount();
             });
             $('#buttonByNumber').click(function () {
                 let localStorageSettings = getLocalStorage();
@@ -561,6 +566,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     }, delay);
                     delay += 200;
                 }
+                updateCommandCount();
             });
             $('#buttonByTime').click(function () {
                 let localStorageSettings = getLocalStorage();
@@ -590,6 +596,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                     }, delay);
                     delay += 200;
                 }
+                updateCommandCount();
             });
             $('#buttonLoadTemplates').click(async function () {
                 if (DEBUG) console.debug(`${scriptInfo} Loading troop templates`);
@@ -659,6 +666,7 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
                 else $('#manageCommandsDiv').show();
                 Timing.tickHandlers.timers.init();
                 if (DEBUG) console.debug(`${scriptInfo} Initialized input fields`);
+                updateCommandCount();
             }).catch(error => {
                 console.error("Error retrieving plans", error);
             });
@@ -837,12 +845,13 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
         function renderPlan(plan, id) {
             if (DEBUG) console.debug(`${scriptInfo} Rendering plan with ID: ${id}`);
             tbodyContent = renderPlanRows(plan, id);
+            commandCount = updateCommandCount(id);
 
             let html = `
         <table class="sbPlan ra-table">
             <thead>
                 <tr id="planTableHeader">
-                    <th></th>
+                    <th id="count${id}">${commandCount}</th>
                     <th class="ra-tac">Origin Village</th>
                     <th class="ra-tac">Attacker</th>
                     <th class="ra-tac">Target Village</th>
@@ -862,6 +871,32 @@ $.getScript(`https://twscripts.dev/scripts/twSDK.js?url=${document.currentScript
 
             if (DEBUG) console.debug(`${scriptInfo} Rendered plan with ID: ${id}`);
             return html;
+        }
+
+        function updateCommandCount(planId) {
+            let commandCount;
+            let actualPlanId;
+            if (planId) {
+                if (!sbPlans || !sbPlans[planId]) {
+                    if (DEBUG) console.warn(`${scriptInfo} Plan with ID: ${planId} does not exist`);
+                    return;
+                }
+                commandCount = sbPlans[planId].length;
+                actualPlanId = planId;
+            } else {
+                let localStorageSettings = getLocalStorage();
+                let planId = localStorageSettings.planSelector;
+                let lastDashIndex = planId.lastIndexOf('-');
+                actualPlanId = parseInt(planId.substring(lastDashIndex + 1));
+                if (!sbPlans || !sbPlans[actualPlanId]) {
+                    if (DEBUG) console.warn(`${scriptInfo} Plan with ID: ${actualPlanId} does not exist`);
+                    return;
+                }
+                commandCount = sbPlans[actualPlanId].length;
+                document.getElementById(`count${actualPlanId}`).textContent = commandCount;
+            }
+            if (DEBUG) console.debug(`${scriptInfo} Updated command count for plan with ID: ${actualPlanId}`);
+            return commandCount;
         }
 
         function renderPlanRows(plan, id) {

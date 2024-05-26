@@ -1079,6 +1079,7 @@ $.getScript(`https://cdn.jsdelivr.net/gh/SaveBankDev/Tribal-Wars-Scripts-SDK@mai
                         }
                         modifyPlan(parseInt(planId), plan);
                         if (DEBUG) console.debug(`${scriptInfo} Deleted command with ID ${commandId} from plan ${planId}`);
+                        updateCommandCount();
                     }
                     deleteButton.addEventListener('keydown', function (event) {
                         if (event.key === 'Enter') {

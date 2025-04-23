@@ -76,6 +76,9 @@ var scriptConfig = {
             'Combine Plan': 'Combine Plan',
             'Please select more plans to combine': 'Please select more plans to combine',
             'Saved': 'Saved',
+            'Fetching troop data...' : 'Fetching troop data...',
+            'Fetching troop data for a large account. This may take a while...' : 'Fetching troop data for a large account. This may take a while...',
+            'Troop data fetched successfully!': 'Troop data fetched successfully!',
         },
         de_DE: {
             'Redirecting...': 'Weiterleiten...',
@@ -116,6 +119,9 @@ var scriptConfig = {
             'Combine Plan': 'Kombinieren',
             'Please select more plans to combine': 'Bitte wählen Sie mehr Pläne aus, um sie zu kombinieren',
             'Saved': 'Gespeichert',
+            'Troop data fetched successfully!': 'Truppendaten erfolgreich geladen!',
+            'Fetching troop data for a large account. This may take a while...': 'Truppendaten für einen großen Account werden geladen. Dies kann eine Weile dauern...',
+            'Troop data fetched successfully!': 'Truppendaten wurden erfolgreich geladen!',
         }
     }
     ,
@@ -1739,7 +1745,7 @@ $.getScript(`https://cdn.jsdelivr.net/gh/SaveBankDev/Tribal-Wars-Scripts-SDK@mai
 
         async function fetchTroopsForAllVillages() {
             const mobileCheck = jQuery('#mobileHeader').length > 0;
-            const totalVillages = game_data.player.villages;
+            const totalVillages = parseInt(game_data.player.villages);
             const troopsForGroup = [];
             let pageSize = 0;
         
@@ -1868,6 +1874,7 @@ $.getScript(`https://cdn.jsdelivr.net/gh/SaveBankDev/Tribal-Wars-Scripts-SDK@mai
                         page++;
                         await new Promise(resolve => setTimeout(resolve, 200)); // Wait for 200 ms before the next request
                     }
+                    UI.SuccessMessage(twSDK.tt('Troop data fetched successfully!'));
                 }
         
                 return troopsForGroup;

@@ -76,8 +76,8 @@ var scriptConfig = {
             'Combine Plan': 'Combine Plan',
             'Please select more plans to combine': 'Please select more plans to combine',
             'Saved': 'Saved',
-            'Fetching troop data...' : 'Fetching troop data...',
-            'Fetching troop data for a large account. This may take a while...' : 'Fetching troop data for a large account. This may take a while...',
+            'Fetching troop data...': 'Fetching troop data...',
+            'Fetching troop data for a large account. This may take a while...': 'Fetching troop data for a large account. This may take a while...',
             'Troop data fetched successfully!': 'Troop data fetched successfully!',
         },
         de_DE: {
@@ -1747,23 +1747,23 @@ $.getScript(`https://cdn.jsdelivr.net/gh/SaveBankDev/Tribal-Wars-Scripts-SDK@mai
         async function fetchTroopsForAllVillages() {
             const mobileCheck = jQuery('#mobileHeader').length > 0;
             const totalVillages = parseInt(game_data.player.villages);
-            const troopsForGroup = [];
+            const troopsForGroup = {}; // Changed from array to object
             let pageSize = 0;
-        
+
             // Function to fetch and process data for a single page
             async function fetchPageData(page) {
                 const response = await jQuery.get(
                     game_data.link_base_pure +
                     `overview_villages&mode=combined&group=0&page=${page}`
                 );
-        
+
                 const htmlDoc = jQuery.parseHTML(response);
                 const homeTroops = [];
-        
+
                 if (pageSize === 0) {
                     pageSize = parseInt(jQuery(htmlDoc).find("input[name='page_size']").val(), 10);
                 }
-        
+
                 if (mobileCheck) {
                     let table = jQuery(htmlDoc).find('#combined_table tr.nowrap');
                     for (let i = 0; i < table.length; i++) {
@@ -1788,10 +1788,10 @@ $.getScript(`https://cdn.jsdelivr.net/gh/SaveBankDev/Tribal-Wars-Scripts-SDK@mai
                         listTroops.forEach((item) => {
                             objTroops[item.name] = item.value;
                         });
-        
+
                         objTroops.villageId = villageId;
                         objTroops.coord = villageMap.get(parseInt(villageId));
-        
+
                         homeTroops.push(objTroops);
                     }
                 } else {
@@ -1801,9 +1801,9 @@ $.getScript(`https://cdn.jsdelivr.net/gh/SaveBankDev/Tribal-Wars-Scripts-SDK@mai
                     const combinedTableHead = jQuery(htmlDoc).find(
                         '#combined_table tr:eq(0) th'
                     );
-        
+
                     const combinedTableHeader = [];
-        
+
                     // collect possible buildings and troop types
                     jQuery(combinedTableHead).each(function () {
                         const thImage = jQuery(this).find('img').attr('src');
@@ -1815,11 +1815,11 @@ $.getScript(`https://cdn.jsdelivr.net/gh/SaveBankDev/Tribal-Wars-Scripts-SDK@mai
                             combinedTableHeader.push(null);
                         }
                     });
-        
+
                     // collect possible troop types
                     combinedTableRows.each(function () {
                         let rowTroops = {};
-        
+
                         combinedTableHeader.forEach((tableHeader, index) => {
                             if (tableHeader) {
                                 if (tableHeader.includes('unit_')) {
@@ -1846,45 +1846,54 @@ $.getScript(`https://cdn.jsdelivr.net/gh/SaveBankDev/Tribal-Wars-Scripts-SDK@mai
                         homeTroops.push(rowTroops);
                     });
                 }
-        
+
                 return homeTroops;
             }
-        
+
             try {
                 if (totalVillages <= 1000) {
                     // If the player has less than or equal to 1000 villages, use page=-1 for efficiency
                     UI.SuccessMessage(twSDK.tt('Fetching troop data...'));
                     const homeTroops = await fetchPageData(-1);
-                    troopsForGroup.push(...homeTroops);
+
+                    // Convert array to object with villageId as keys
+                    homeTroops.forEach(troops => {
+                        troopsForGroup[troops.villageId] = troops;
+                    });
                 } else {
                     UI.SuccessMessage(twSDK.tt('Fetching troop data for a large account. This may take a while...'));
                     let page = 0;
                     let totalProcessedVillages = 0;
-        
+
                     // Loop through pages until all villages are processed
                     while (totalProcessedVillages < totalVillages) {
                         const homeTroops = await fetchPageData(page);
-                        troopsForGroup.push(...homeTroops);
+
+                        // Convert array to object with villageId as keys
+                        homeTroops.forEach(troops => {
+                            troopsForGroup[troops.villageId] = troops;
+                        });
+
                         totalProcessedVillages += homeTroops.length;
-        
+
                         // If the number of processed villages is less than the page size, we have reached the last page
                         if (homeTroops.length < pageSize) {
                             break;
                         }
-        
+
                         page++;
                         await new Promise(resolve => setTimeout(resolve, 200)); // Wait for 200 ms before the next request
                     }
                     UI.SuccessMessage(twSDK.tt('Troop data fetched successfully!'));
                 }
-        
-                return troopsForGroup;
+
+                return troopsForGroup; // Now returning an object with village IDs as keys
             } catch (error) {
                 UI.ErrorMessage(
                     twSDK.tt('There was an error while fetching the data!')
                 );
                 console.error(`${scriptInfo} Error:`, error);
-                return [];
+                return {};  // Return empty object instead of empty array on error
             }
         }
     }
